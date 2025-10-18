@@ -10,71 +10,101 @@ function M.setup(config)
     _config = config
 end
 
-local function handle_date_selection(now, win, calendar_lines)
-    local cursor_pos = vim.api.nvim_win_get_cursor(win)
-    local line_num = cursor_pos[1]
-    local col_num = cursor_pos[2] + 1
+local function get_calendar_grid(now)
+    local first_day = os.time({ year = now.year, month = now.month, day = 1 })
+    local first_weekday = (tonumber(os.date("%w", first_day)) - 1) % 7
+    local days_in_month = tonumber(os.date("%d", os.time({ year = now.year, month = now.month + 1, day = 0 })))
 
-    if line_num < 3 then
-        vim.api.nvim_win_close(win, true)
-        return
-    end
+    local grid = {}
+    local day_count = 1
 
-    local line = calendar_lines[line_num]
+    for week = 1, 6 do
+        local week_days = {}
+        for weekday = 1, 7 do
+            local day_num = 0
+            local text = "  "
 
-    local prev = line:sub(col_num - 1, col_num - 1)
-    local curr = line:sub(col_num, col_num)
-    local next = line:sub(col_num + 1, col_num + 1)
-    local subs = line:sub(col_num + 2, col_num + 2)
+            local position = (week - 1) * 7 + weekday
+            if position > first_weekday and day_count <= days_in_month then
+                day_num = day_count
+                text = string.format("%2d", day_count)
+                day_count = day_count + 1
+            end
 
-    local day_num = nil
-    if tonumber(curr) then
-        if tonumber(next) then
-            day_num = tonumber(curr .. next)
-        elseif tonumber(prev) then
-            day_num = tonumber(prev .. curr)
+            table.insert(week_days, { text = text, day = day_num })
         end
-    elseif tonumber(next) and not tonumber(subs) then
-        day_num = tonumber(next)
+
+        if week > 1 or day_count > 1 then
+            table.insert(grid, week_days)
+        end
     end
 
-    if day_num then
-        local date_table = { year = now.year, month = now.month, day = day_num }
+    return grid
+end
+
+local function update_highlight(buf, grid, selected_day)
+    -- Clear existing highlights
+    vim.api.nvim_buf_clear_namespace(buf, -1, 0, -1)
+
+    -- Find and highlight selected day
+    for week_idx, week in ipairs(grid) do
+        for day_idx, day in ipairs(week) do
+            if day.day == selected_day and day.day > 0 then
+                local line_num = week_idx + 2 -- +2 for header and weekday lines
+                local col_start = (day_idx - 1) * 3
+                vim.api.nvim_buf_add_highlight(buf, -1, "Visual", line_num - 1, col_start, col_start + 2)
+                return
+            end
+        end
+    end
+end
+
+local function navigate_date(buf, grid, selected_day, direction, now)
+    local days_in_month = tonumber(os.date("%d", os.time({ year = now.year, month = now.month + 1, day = 0 }))) or 31
+    local new_day = selected_day
+
+    if direction == "left" then
+        new_day = math.max(1, selected_day - 1)
+    elseif direction == "right" then
+        new_day = math.min(days_in_month, selected_day + 1)
+    elseif direction == "up" then
+        new_day = math.max(1, selected_day - 7)
+    elseif direction == "down" then
+        new_day = math.min(days_in_month, selected_day + 7)
+    end
+
+    if new_day <= days_in_month and new_day >= 1 then
+        update_highlight(buf, grid, new_day)
+        return new_day
+    end
+
+    return selected_day
+end
+
+local function handle_date_selection(selected_day, now)
+    if selected_day then
+        local date_table = { year = now.year, month = now.month, day = selected_day }
         local timestamp = os.time(date_table)
         local path = os.date(_config.path_pattern, timestamp)
-
-        vim.api.nvim_win_close(win, true)
         vim.cmd("edit " .. path)
-    else
-        vim.api.nvim_win_close(win, true)
     end
 end
 
 function M.show_calendar()
     local now = os.date("*t")
+    local selected_day = now.day
+
+    local grid = get_calendar_grid(now)
 
     local header = string.format("< %s %d >", MONTH_NAMES[now.month], now.year)
     local calendar_lines = { header, WEEKDAYS_HEADER }
 
-    local days = {}
-    -- Add leading spaces for first week
-    local first_day = os.time({ year = now.year, month = now.month, day = 1 })
-    local first_weekday = tonumber(os.date("%w", first_day)) - 1
-    for _ = 1, first_weekday do
-        table.insert(days, "  ")
-    end
-    -- Add days of month
-    local days_in_month = tonumber(os.date("%d", os.time({ year = now.year, month = now.month + 1, day = 0 })))
-    for d = 1, days_in_month do
-        table.insert(days, string.format("%2d", d))
-    end
-    -- Group into weeks
-    for i = 1, #days, 7 do
-        local week_days = {}
-        for j = i, math.min(i + 6, #days) do
-            table.insert(week_days, days[j])
+    for _, week in ipairs(grid) do
+        local week_line = {}
+        for _, day in ipairs(week) do
+            table.insert(week_line, day.text)
         end
-        table.insert(calendar_lines, table.concat(week_days, " "))
+        table.insert(calendar_lines, table.concat(week_line, " "))
     end
 
     local max_width = 0
@@ -106,22 +136,38 @@ function M.show_calendar()
         style = "minimal",
         border = "rounded",
     })
-    vim.api.nvim_win_set_option(win, "cursorline", true)
+    vim.api.nvim_win_set_option(win, "cursorline", false)
+    vim.api.nvim_win_set_option(win, "cursorcolumn", false)
 
-    -- Position cursor on current date
-    local current_date_pattern = string.format("%2d", now.day)
-    for line_num = 2, #calendar_lines do
-        local start_pos = calendar_lines[line_num]:find(current_date_pattern, 1, true)
-        if start_pos then
-            vim.api.nvim_win_set_cursor(win, { line_num, start_pos - 1 })
-            break
-        end
+    update_highlight(buf, grid, selected_day)
+
+    local function navigate_left()
+        selected_day = navigate_date(buf, grid, selected_day, "left", now)
     end
 
-    -- Set keymaps
+    local function navigate_right()
+        selected_day = navigate_date(buf, grid, selected_day, "right", now)
+    end
+
+    local function navigate_up()
+        selected_day = navigate_date(buf, grid, selected_day, "up", now)
+    end
+
+    local function navigate_down()
+        selected_day = navigate_date(buf, grid, selected_day, "down", now)
+    end
+
+    local function select_date()
+        vim.api.nvim_win_close(win, true)
+        handle_date_selection(selected_day, now)
+    end
+
     vim.api.nvim_buf_set_keymap(buf, "n", "q", "<cmd>close<cr>", { noremap = true, silent = true })
-    vim.api.nvim_buf_set_keymap(buf, "n", "<CR>", "",
-        { noremap = true, silent = true, callback = function() handle_date_selection(now, win, calendar_lines) end })
+    vim.api.nvim_buf_set_keymap(buf, "n", "<CR>", "", { noremap = true, silent = true, callback = select_date })
+    vim.api.nvim_buf_set_keymap(buf, "n", "h", "", { noremap = true, silent = true, callback = navigate_left })
+    vim.api.nvim_buf_set_keymap(buf, "n", "l", "", { noremap = true, silent = true, callback = navigate_right })
+    vim.api.nvim_buf_set_keymap(buf, "n", "k", "", { noremap = true, silent = true, callback = navigate_up })
+    vim.api.nvim_buf_set_keymap(buf, "n", "j", "", { noremap = true, silent = true, callback = navigate_down })
 end
 
 return M
