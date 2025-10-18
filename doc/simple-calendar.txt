@@ -1,1 +1,102 @@
-*simple-calendar* Simple calendar plugin
+*simple-calendar.txt* Simple calendar plugin for Neovim
+
+==============================================================================
+CONTENTS                                                           *simple-calendar*
+
+    1. Introduction ................ |simple-calendar-introduction|
+    2. Installation ................ |simple-calendar-installation|
+    3. Usage ....................... |simple-calendar-usage|
+    4. Configuration ............... |simple-calendar-configuration|
+    5. Keybindings ................. |simple-calendar-keybindings|
+    6. Functions ................... |simple-calendar-functions|
+    7. License ..................... |simple-calendar-license|
+
+==============================================================================
+INTRODUCTION                                                   *simple-calendar-introduction*
+
+simple-calendar.nvim is a simple calendar plugin for Neovim.
+
+Features:
+- Intuitive navigation using h/j/k/l keys
+- Month switching using p/n keys
+- Date selection that opens files based on configurable pattern
+
+==============================================================================
+INSTALLATION                                                   *simple-calendar-installation*
+
+Using lazy.nvim:
+>
+    { "yahorni/simple-calendar.nvim" }
+<
+
+==============================================================================
+USAGE                                                             *simple-calendar-usage*
+
+To open the calendar:
+>
+    :lua require('simple-calendar').show_calendar()
+<
+
+Create a keymap for quick access:
+>
+    vim.keymap.set('n', '<leader>c', require("simple-calendar").show_calendar, { desc = "Open [C]alendar" })
+<
+
+==============================================================================
+CONFIGURATION                                               *simple-calendar-configuration*
+
+No configuration required. Optional setup:
+>
+    require("simple-calendar").setup({
+        path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md"
+    })
+<
+
+Options:
+
+path_pattern~                           (string)
+    Date format pattern for file creation when selecting a date. Uses Lua's
+    os.date() format.
+    Default: "%Y-%m-%d.md"
+
+==============================================================================
+KEYBINDINGS                                                 *simple-calendar-keybindings*
+
+When the calendar window is open:
+
+Key         Action~
+---         ------
+h           Move left to previous day
+j           Move down to next week
+k           Move up to previous week
+l           Move right to next day
+p           Switch to previous month
+n           Switch to next month
+<CR>        Select current date and open corresponding file
+q           Close calendar window
+
+==============================================================================
+FUNCTIONS                                                   *simple-calendar-functions*
+
+show_calendar()~
+    Opens the calendar window.
+>
+    require("simple-calendar").show_calendar()
+<
+
+setup(config)~
+    Configures the plugin with the provided options.
+>
+    require("simple-calendar").setup({
+        path_pattern = "%Y-%m-%d.md"  -- Default value
+    })
+<
+
+==============================================================================
+LICENSE                                                       *simple-calendar-license*
+
+This plugin is licensed under the GNU Affero General Public License v3.0.
+See the LICENSE file for full details.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
