@@ -4,10 +4,34 @@ local MONTH_NAMES = { "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December" }
 local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
 
-local _config = { path_pattern = "%Y-%m-%d.md" }
+local _config = { path_pattern = "%Y-%m-%d.md", highlight_unfinished_tasks = false }
 
 function M.setup(config)
     _config = config
+end
+
+local function get_day_status(date_table)
+    if not _config.highlight_unfinished_tasks then
+        return "normal"
+    end
+
+    local timestamp = os.time(date_table)
+    local path = os.date(_config.path_pattern, timestamp)
+
+    if vim.fn.filereadable(path) == 0 then
+        return "missing"
+    end
+
+    local lines = vim.fn.readfile(path)
+    for _, line in ipairs(lines) do
+        -- Match markdown task list items that are not completed (- [x] or - [-])
+        -- This matches: - [ ], - [/], - [?], etc. but not - [x] or - [-]
+        if line:match("^%s*%- %[%s*[^x%-]%]%s*") then
+            return "unfinished"
+        end
+    end
+
+    return "normal"
 end
 
 local function get_calendar_grid(now)
@@ -42,18 +66,31 @@ local function get_calendar_grid(now)
     return grid
 end
 
-local function update_highlight(buf, grid, selected_day)
+local function update_highlight(buf, grid, selected_day, now)
     -- Clear existing highlights
     vim.api.nvim_buf_clear_namespace(buf, -1, 0, -1)
 
-    -- Find and highlight selected day
+    -- Highlight days with unfinished tasks
     for week_idx, week in ipairs(grid) do
         for day_idx, day in ipairs(week) do
-            if day.day == selected_day and day.day > 0 then
+            if day.day > 0 then
                 local line_num = week_idx + 2 -- +2 for header and weekday lines
                 local col_start = (day_idx - 1) * 3
-                vim.api.nvim_buf_add_highlight(buf, -1, "Visual", line_num - 1, col_start, col_start + 2)
-                return
+
+                -- Check day status and apply appropriate highlights
+                local date_table = { year = now.year, month = now.month, day = day.day }
+                local status = get_day_status(date_table)
+
+                if status == "unfinished" then
+                    vim.api.nvim_buf_add_highlight(buf, -1, "Todo", line_num - 1, col_start, col_start + 2)
+                elseif status == "missing" then
+                    vim.api.nvim_buf_add_highlight(buf, -1, "Comment", line_num - 1, col_start, col_start + 2)
+                end
+
+                -- Highlight selected day (overrides task highlight)
+                if day.day == selected_day then
+                    vim.api.nvim_buf_add_highlight(buf, -1, "Visual", line_num - 1, col_start, col_start + 2)
+                end
             end
         end
     end
@@ -91,7 +128,7 @@ local function navigate_date(buf, grid, selected_day, direction, now)
     end
 
     if new_day <= days_in_month and new_day >= 1 then
-        update_highlight(buf, grid, new_day)
+        update_highlight(buf, grid, new_day, now)
         return new_day, hit_boundary
     end
 
@@ -231,7 +268,7 @@ function M.show_calendar()
     vim.api.nvim_win_set_option(win, "cursorline", false)
     vim.api.nvim_win_set_option(win, "cursorcolumn", false)
 
-    update_highlight(buf, grid, selected_day)
+    update_highlight(buf, grid, selected_day, now)
 
     local function update_calendar_display(new_now, new_selected_day)
         now = new_now
@@ -242,7 +279,7 @@ function M.show_calendar()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, calendar_lines)
         vim.api.nvim_buf_set_option(buf, "modifiable", false)
         vim.api.nvim_buf_set_option(buf, "readonly", true)
-        update_highlight(buf, grid, selected_day)
+        update_highlight(buf, grid, selected_day, now)
     end
 
     local function handle_navigation(direction)
