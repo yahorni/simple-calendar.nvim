@@ -59,6 +59,15 @@ path_pattern~                           (string)
     os.date() format.
     Default: "%Y-%m-%d.md"
 
+highlight_unfinished_tasks~             (boolean)
+    When enabled, highlights days based on their task status:
+    - Days with unfinished markdown tasks ("- [ ]", "- [/]", etc.) are
+      highlighted with the `Todo` highlight group
+    - Days where the file doesn't exist are highlighted with the `Comment`
+      highlight group
+    - Completed tasks ("- [x]", "- [-]") are ignored
+    Default: false
+
 ==============================================================================
 KEYBINDINGS                                                 *simple-calendar-keybindings*
 
