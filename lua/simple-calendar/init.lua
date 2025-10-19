@@ -140,7 +140,26 @@ local function handle_date_selection(selected_day, now)
         local date_table = { year = now.year, month = now.month, day = selected_day }
         local timestamp = os.time(date_table)
         local path = os.date(_config.path_pattern, timestamp)
-        vim.cmd("edit " .. path)
+
+        if vim.fn.filereadable(path) == 0 then
+            local choice = vim.fn.confirm(
+                "File " .. path .. " doesn't exist. Create it?",
+                "&Yes\n&No",
+                1
+            )
+
+            if choice == 1 then
+                local dir = vim.fn.fnamemodify(path, ":h")
+                if vim.fn.isdirectory(dir) == 0 then
+                    vim.fn.mkdir(dir, "p")
+                end
+
+                vim.fn.writefile({}, path)
+                vim.cmd("edit " .. path)
+            end
+        else
+            vim.cmd("edit " .. path)
+        end
     end
 end
 
