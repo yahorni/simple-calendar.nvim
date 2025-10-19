@@ -9,6 +9,7 @@ A simple calendar plugin for Neovim.
 - Intuitive navigation using h/j/k/l keys
 - Month switching using p/n keys
 - Date selection that opens files based on configurable pattern
+- Automatically opens on current file date when filename matches pattern
 
 ## Installation
 
@@ -25,6 +26,8 @@ Open the calendar:
 ```lua
 :lua require('simple-calendar').show_calendar()
 ```
+
+When opened, the calendar will automatically show the date from the current filename if it matches the `path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
 
 Or create a keymap:
 
@@ -55,6 +58,21 @@ require("simple-calendar").setup({
     highlight_unfinished_tasks = false
 })
 ```
+
+### Path Pattern Support
+
+The `path_pattern` supports complex directory structures with date components:
+
+- **Simple pattern**: `%Y-%m-%d.md` → `2024-10-15.md`
+- **Complex patterns**:
+  - `%Y-%m %B/%Y-%m-%d.md` → `2024-10 October/2024-10-15.md`
+  - `notes/%Y/%m-%B/%Y-%m-%d.md` → `notes/2024/10-October/2024-10-15.md`
+
+Supported strftime tokens:
+- `%Y` - 4-digit year (e.g., 2024)
+- `%m` - 2-digit month (e.g., 10)
+- `%d` - 2-digit day (e.g., 15)
+- `%B` - Full month name (e.g., October)
 
 When `highlight_unfinished_tasks` is enabled:
 - Days with unfinished markdown tasks (`- [ ]`, `- [/]`, etc.) are highlighted with `Todo` highlight group

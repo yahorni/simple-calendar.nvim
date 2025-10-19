@@ -230,9 +230,151 @@ local function refresh_calendar(now)
     return grid, calendar_lines
 end
 
-function M.show_calendar()
-    local now = os.date("*t")
-    local selected_day = now.day
+local function month_name_to_number(month_name)
+    for i, name in ipairs(MONTH_NAMES) do
+        if name:lower() == month_name:lower() then
+            return i
+        end
+    end
+    return nil
+end
+
+local function convert_pattern_to_regex(pattern)
+    -- Build regex pattern by replacing strftime patterns
+    local regex_parts = {}
+    local current_pos = 1
+    local group_count = 0
+    local year_index = 0
+    local month_index = 0
+    local day_index = 0
+
+    -- Find all strftime patterns in the pattern
+    for match_start, match_type, match_end in pattern:gmatch("()(%%[YmdB])()") do
+        match_start = tonumber(match_start)
+        match_end = tonumber(match_end)
+
+        -- Add text before the match
+        if match_start > current_pos then
+            local text_before = pattern:sub(current_pos, match_start - 1)
+            -- Escape regex special characters
+            text_before = text_before:gsub("([%^%$%(%)%.%[%]%*%+%-%?])", "%%%1")
+            table.insert(regex_parts, text_before)
+        end
+
+        -- Add the capture group for the strftime pattern
+        group_count = group_count + 1
+        if match_type == "%Y" then
+            table.insert(regex_parts, "(%d%d%d%d)")
+            year_index = group_count
+        elseif match_type == "%m" then
+            table.insert(regex_parts, "(%d%d)")
+            month_index = group_count
+        elseif match_type == "%d" then
+            table.insert(regex_parts, "(%d%d)")
+            day_index = group_count
+        elseif match_type == "%B" then
+            table.insert(regex_parts, "(%a+)")
+            -- %B is treated as month, so track it as month_index
+            month_index = group_count
+        end
+
+        if match_end then
+            current_pos = match_end
+        end
+    end
+
+    -- Add remaining text after last match
+    if current_pos <= #pattern then
+        local text_after = pattern:sub(current_pos)
+        -- Escape regex special characters
+        text_after = text_after:gsub("([%^%$%(%)%.%[%]%*%+%-%?])", "%%%1")
+        table.insert(regex_parts, text_after)
+    end
+
+    local regex_pattern = table.concat(regex_parts)
+
+    return {
+        regex = regex_pattern,
+        year_index = year_index,
+        month_index = month_index,
+        day_index = day_index,
+    }
+end
+
+local function extract_date_from_filename()
+    local current_file = vim.api.nvim_buf_get_name(0)
+    if current_file == "" then
+        return nil
+    end
+
+    local full_path = vim.fn.fnamemodify(current_file, ":p")
+    local pattern = _config.path_pattern
+
+    -- Convert pattern to regex and get capture group indices
+    local pattern_info = convert_pattern_to_regex(pattern)
+
+    -- Try to match the pattern against the full path
+    local captures = { full_path:match(pattern_info.regex) }
+
+    if #captures > 0 then
+        local year, month, day
+
+        -- Extract values using the tracked indices
+        if pattern_info.year_index > 0 then
+            year = captures[pattern_info.year_index]
+        end
+        if pattern_info.month_index > 0 then
+            month = captures[pattern_info.month_index]
+        end
+        if pattern_info.day_index > 0 then
+            day = captures[pattern_info.day_index]
+        end
+
+        -- Handle month names if present
+        if month and not tonumber(month) then
+            month = month_name_to_number(month)
+        end
+
+        if year and month and day then
+            return {
+                year = tonumber(year),
+                month = tonumber(month),
+                day = tonumber(day),
+            }
+        end
+    end
+
+    -- Fallback: try to extract date from filename only
+    local filename = vim.fn.fnamemodify(current_file, ":t")
+    local year, month, day = filename:match("^(%d%d%d%d)-(%d%d)-(%d%d)%.md$")
+    if year and month and day then
+        return {
+            year = tonumber(year),
+            month = tonumber(month),
+            day = tonumber(day),
+        }
+    end
+
+    return nil
+end
+
+function M.show_calendar(date)
+    local now
+    local selected_day
+
+    if date then
+        now = date
+        selected_day = date.day
+    else
+        local extracted_date = extract_date_from_filename()
+        if extracted_date then
+            now = extracted_date
+            selected_day = extracted_date.day
+        else
+            now = os.date("*t")
+            selected_day = now.day
+        end
+    end
 
     local grid, calendar_lines = refresh_calendar(now)
 
