@@ -232,10 +232,19 @@ local function switch_month(now, selected_day, direction, mode)
     return { year = new_year, month = new_month, day = new_day }
 end
 
+local function format_header(month_name, year, width)
+    local text = month_name .. " " .. tostring(year)
+    local total_padding = width - 2 - #text
+    if total_padding < 0 then total_padding = 0 end
+    local left_padding = math.floor(total_padding / 2)
+    local right_padding = total_padding - left_padding
+    return "<" .. string.rep(" ", left_padding) .. text .. string.rep(" ", right_padding) .. ">"
+end
+
 local function refresh_calendar(now)
     local grid = get_calendar_grid(now)
 
-    local header = string.format("< %s %d >", MONTH_NAMES[now.month], now.year)
+    local header = format_header(MONTH_NAMES[now.month], now.year, #WEEKDAYS_HEADER)
     local calendar_lines = { header, WEEKDAYS_HEADER }
 
     for _, week in ipairs(grid) do
