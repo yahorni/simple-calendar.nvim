@@ -57,7 +57,9 @@ require("simple-calendar").setup({
     -- Path pattern to daily notes
     daily_path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md",
     -- Highlight days whose daily note contains unfinished tasks
-    highlight_unfinished_tasks = true
+    highlight_unfinished_tasks = true,
+    -- Completed task markers (default: {"x", "-"})
+    completed_task_markers = {"x", "-"},
 })
 ```
 
@@ -79,7 +81,9 @@ Supported strftime tokens:
 When `highlight_unfinished_tasks` is enabled:
 - Days with unfinished markdown tasks (like `- [ ]`/`- [/]`/etc.) are highlighted with `Todo` highlight group
 - Days where the file doesn't exist are highlighted with `Comment` highlight group
-- Completed tasks (`- [x]`, `- [-]`) are ignored
+- Completed tasks (configurable markers, default: `- [x]`, `- [-]`) are ignored
+
+Use `completed_task_markers` to customize which bracket contents mark a task as completed.
 
 ## Testing
 

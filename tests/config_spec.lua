@@ -15,6 +15,7 @@ function M.run()
     -- Backup original config
     local original_daily_path_pattern = _config.daily_path_pattern
     local original_highlight_unfinished_tasks = _config.highlight_unfinished_tasks
+    local original_completed_task_markers = _config.completed_task_markers
 
     -- Test: Default configuration
     assert.run_test("Default configuration values", function()
@@ -99,9 +100,34 @@ function M.run()
         vim.api.nvim_buf_get_name = original_buf_get_name
     end)
 
+    -- Test: completed_task_markers default and merging
+    assert.run_test("completed_task_markers - default value", function()
+        -- Reset to defaults
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.highlight_unfinished_tasks = false
+        _config.completed_task_markers = { "x", "-" }
+
+        assert.assert_equal(#_config.completed_task_markers, 2, "Should have 2 default markers")
+        assert.assert_equal(_config.completed_task_markers[1], "x", "First marker should be 'x'")
+        assert.assert_equal(_config.completed_task_markers[2], "-", "Second marker should be '-'")
+    end)
+
+    assert.run_test("completed_task_markers - custom value", function()
+        -- Reset all config to defaults (consistent with other tests)
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.highlight_unfinished_tasks = false
+        _config.completed_task_markers = { "x", "-" }
+
+        plugin.setup({ completed_task_markers = { "done", "X" } })
+        assert.assert_equal(#_config.completed_task_markers, 2, "Should have 2 custom markers")
+        assert.assert_equal(_config.completed_task_markers[1], "done", "First marker should be 'done'")
+        assert.assert_equal(_config.completed_task_markers[2], "X", "Second marker should be 'X'")
+    end)
+
     -- Restore original config
     _config.daily_path_pattern = original_daily_path_pattern
     _config.highlight_unfinished_tasks = original_highlight_unfinished_tasks
+    _config.completed_task_markers = original_completed_task_markers
 
     print("  All Configuration tests completed")
 end

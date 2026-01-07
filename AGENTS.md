@@ -47,7 +47,7 @@
 
 ## Module Overview
 - **Entry point**: `M.show_calendar()` - opens calendar window
-- **Configuration**: `_config` table with `daily_path_pattern` and `highlight_unfinished_tasks` options
+- **Configuration**: `_config` table with `daily_path_pattern`, `highlight_unfinished_tasks`, and `completed_task_markers` options
 - **Date handling**: Uses Lua `os.date`/`os.time` for calendar calculations
 - **Pattern matching**: Supports strftime patterns (`%Y`, `%m`, `%d`, `%B`) via `convert_pattern_to_regex()`
 - **Navigation**: Month switching preserves weekday when moving vertically (k/j keys)

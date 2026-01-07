@@ -52,6 +52,7 @@ No configuration required. Optional setup:
     require("simple-calendar").setup({
         daily_path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md"
         highlight_unfinished_tasks = true
+        completed_task_markers = {"x", "-"}
     })
 <
 
@@ -68,8 +69,14 @@ highlight_unfinished_tasks~             (boolean)
       highlighted with the `Todo` highlight group
     - Days where the file doesn't exist are highlighted with the `Comment`
       highlight group
-    - Completed tasks ("- [x]", "- [-]") are ignored
+    - Completed tasks (configurable markers, default: "- [x]", "- [-]")
+      are ignored
     Default: false
+
+completed_task_markers~                 (table)
+    List of strings that mark completed tasks inside brackets.
+    For example, {"x", "-"} matches "- [x]" and "- [-]".
+    Default: {"x", "-"}
 
 ==============================================================================
 KEYBINDINGS                                                 *simple-calendar-keybindings*
