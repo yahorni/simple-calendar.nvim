@@ -108,7 +108,7 @@ function M.run_test(name, test_fn)
         return true
     else
         print(string.format("  ✗ %s: %s", name, err))
-        return false
+        error(err, 0)
     end
 end
 

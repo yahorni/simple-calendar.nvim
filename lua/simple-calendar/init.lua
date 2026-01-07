@@ -1,22 +1,48 @@
 local M = {}
 
-local MONTH_NAMES = { "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December" }
-local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
-
--- Global state
+-- Default config
 local _config = {
     daily_path_pattern = "%Y-%m-%d.md",
     highlight_unfinished_tasks = false,
     completed_task_markers = { "x", "-" },
 }
 
+-- Global constants
+local MONTH_NAMES = { "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December" }
+local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
+
+-- Global state
 local _current_win = nil
 local _programmatic_cursor_move_count = 0
 
 function M.setup(config)
-    if config then
-        for k, v in pairs(config) do
+    if config == nil then
+        return
+    end
+
+    local warn_level = vim.log.levels and vim.log.levels.WARN or 2
+    local function log_warn(message)
+        vim.notify("simple-calendar: " .. message, warn_level)
+    end
+
+    for k, v in pairs(config) do
+        if k == "completed_task_markers" and type(v) == "table" then
+            -- Validate that all markers are single characters (space not allowed)
+            local valid_markers = {}
+            for _, marker in ipairs(v) do
+                if type(marker) ~= "string" then
+                    log_warn("Invalid completed_task_marker given - must be 'string'")
+                elseif vim.fn.strchars(marker) ~= 1 then
+                    log_warn("Invalid completed_task_marker '" .. marker .. "' - must be a single character")
+                elseif marker == " " then
+                    log_warn("Invalid completed_task_marker ' ' - space is not allowed as a marker")
+                else
+                    table.insert(valid_markers, marker)
+                end
+            end
+            _config[k] = valid_markers
+        else
             _config[k] = v
         end
     end
@@ -208,9 +234,9 @@ function FileUtils.get_day_status(date_table)
     local lines = vim.fn.readfile(path)
     for _, line in ipairs(lines) do
         -- Match markdown task list items that are not completed
-        -- Extract content inside brackets (including whitespace)
-        local content = line:match("^%s*%- %[(.-)%]")
-        if content then
+        -- Supports -, *, + bullets, single character inside brackets, excludes markdown links
+        local content, pos = line:match("^%s*[-+*] %[(.)%]()")
+        if content and (pos > #line or line:sub(pos, pos) ~= "(") then
             -- Check if content matches any completed task marker
             local is_completed = false
             for _, marker in ipairs(_config.completed_task_markers) do
@@ -464,7 +490,7 @@ function UI.calculate_window_position(width, height)
     if ui.width < min_width or ui.height < min_height then
         if vim.notify then
             local warn_level = vim.log.levels and vim.log.levels.WARN or 2
-            vim.notify("Terminal too small for calendar (needs " .. min_width .. "x" .. min_height .. ")", warn_level)
+            vim.notify("simple-calendar: Terminal too small (needs " .. min_width .. "x" .. min_height .. ")", warn_level)
         end
         return nil, nil
     end
