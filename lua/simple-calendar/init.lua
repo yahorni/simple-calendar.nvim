@@ -437,6 +437,59 @@ function UI.close_calendar_window(win_to_close)
     end
 end
 
+function UI.calculate_window_position(width, height)
+    local ui = vim.api.nvim_list_uis()[1]
+    if not ui then return nil, nil end
+
+    -- Account for border (rounded border adds 2 columns and 2 rows)
+    local total_width = width + 2
+    local total_height = height + 2
+
+    -- Minimum terminal size (22x10) or total window dimensions, whichever is larger
+    local min_width = math.max(22, total_width)
+    local min_height = math.max(10, total_height)
+
+    if ui.width < min_width or ui.height < min_height then
+        if vim.notify then
+            local warn_level = vim.log.levels and vim.log.levels.WARN or 2
+            vim.notify("Terminal too small for calendar (needs " .. min_width .. "x" .. min_height .. ")", warn_level)
+        end
+        return nil, nil
+    end
+
+    -- Calculate centered position for total window (including border)
+    local total_col = math.floor((ui.width - total_width) / 2)
+    local total_row = math.floor((ui.height - total_height) / 2)
+
+    -- Content position is offset by border (1 cell each side)
+    local col = total_col + 1
+    local row = total_row + 1
+
+    -- Keep window within UI bounds (ensure border doesn't go off screen)
+    col = math.max(1, math.min(col, ui.width - width - 1))
+    row = math.max(1, math.min(row, ui.height - height - 1))
+
+    return col, row
+end
+
+function UI.reposition_window(win)
+    if not win or not vim.api.nvim_win_is_valid(win) then return end
+
+    local config = vim.api.nvim_win_get_config(win)
+    if not config or not config.width or not config.height then return end
+
+    local col, row = UI.calculate_window_position(config.width, config.height)
+    if not col then
+        -- Window no longer fits, close it
+        UI.close_calendar_window(win)
+        return
+    end
+
+    config.col = col
+    config.row = row
+    vim.api.nvim_win_set_config(win, config)
+end
+
 -- ============================================================================
 -- Navigation Module
 -- ============================================================================
@@ -618,17 +671,19 @@ function M.show_calendar(date)
     local width = max_width
     local height = #state.calendar_lines
 
+    -- Calculate window position (centered)
+    local col, row = UI.calculate_window_position(width, height)
+    if not col then
+        -- Warning already shown by calculate_window_position
+        return
+    end
+
     state.buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, state.calendar_lines)
     vim.api.nvim_buf_set_option(state.buf, "filetype", "calendar")
     vim.api.nvim_buf_set_option(state.buf, "buftype", "nofile")
     vim.api.nvim_buf_set_option(state.buf, "modifiable", false)
     vim.api.nvim_buf_set_option(state.buf, "readonly", true)
-
-    -- Calculate window position (centered)
-    local ui = vim.api.nvim_list_uis()[1]
-    local col = ui and math.floor((ui.width - width) / 2) or 0
-    local row = ui and math.floor((ui.height - height) / 2) or 0
 
     state.win = vim.api.nvim_open_win(state.buf, true, {
         relative = "editor",
@@ -668,6 +723,15 @@ function M.show_calendar(date)
                 end
             else
                 UI.ensure_cursor_position(state)
+            end
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("VimResized", {
+        group = au_group,
+        callback = function()
+            if state.win and vim.api.nvim_win_is_valid(state.win) then
+                UI.reposition_window(state.win)
             end
         end,
     })
