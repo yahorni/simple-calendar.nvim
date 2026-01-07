@@ -20,6 +20,7 @@ function M.run()
     local original_buf_get_name = vim.api.nvim_buf_get_name
     local original_config_pattern = _config.daily_path_pattern
     local original_config_highlight = _config.highlight_unfinished_tasks
+    local original_config_completed_markers = _config.completed_task_markers
 
     -- Mock functions with configurable return values
     local mock_filereadable_return = 0
@@ -46,6 +47,7 @@ function M.run()
         vim.api.nvim_buf_get_name = original_buf_get_name
         _config.daily_path_pattern = original_config_pattern
         _config.highlight_unfinished_tasks = original_config_highlight
+        _config.completed_task_markers = original_config_completed_markers
     end
 
     -- Test: convert_pattern_to_regex - basic patterns
@@ -225,6 +227,28 @@ function M.run()
         local status = FileUtils.get_day_status(date)
 
         assert.assert_equal(status, "normal", "Empty path pattern should return 'normal'")
+    end)
+
+    assert.run_test("get_day_status - custom completed_task_markers", function()
+        mock_filereadable_return = 1
+        mock_readfile_calls = 0 -- reset counter
+        mock_readfile_return = {
+            "# Daily log",
+            "- [done] Custom completed",
+            "- [X] Another custom",
+            "- [ ] Unfinished",
+            "- [x] Default x (should be unfinished with custom markers)",
+        }
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.highlight_unfinished_tasks = true
+        _config.completed_task_markers = { "done", "X" }
+
+        local date = { year = 2025, month = 1, day = 15 }
+        local status = FileUtils.get_day_status(date)
+
+        -- Should be "unfinished" because we have - [ ] and - [x] (x not in custom markers)
+        assert.assert_equal(status, "unfinished", "File with tasks not matching custom markers should be 'unfinished'")
+        assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once")
     end)
 
     -- Restore original state

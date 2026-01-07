@@ -8,6 +8,7 @@ local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
 local _config = {
     daily_path_pattern = "%Y-%m-%d.md",
     highlight_unfinished_tasks = false,
+    completed_task_markers = { "x", "-" },
 }
 
 local _current_win = nil
@@ -206,10 +207,21 @@ function FileUtils.get_day_status(date_table)
 
     local lines = vim.fn.readfile(path)
     for _, line in ipairs(lines) do
-        -- Match markdown task list items that are not completed (- [x] or - [-])
-        -- This matches: - [ ], - [/], - [?], etc. but not - [x] or - [-]
-        if line:match("^%s*%- %[%s*[^x%-]%]%s*") then
-            return "unfinished"
+        -- Match markdown task list items that are not completed
+        -- Extract content inside brackets (including whitespace)
+        local content = line:match("^%s*%- %[(.-)%]")
+        if content then
+            -- Check if content matches any completed task marker
+            local is_completed = false
+            for _, marker in ipairs(_config.completed_task_markers) do
+                if content == marker then
+                    is_completed = true
+                    break
+                end
+            end
+            if not is_completed then
+                return "unfinished"
+            end
         end
     end
 
