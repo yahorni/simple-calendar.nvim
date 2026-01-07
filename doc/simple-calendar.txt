@@ -65,17 +65,21 @@ daily_path_pattern~                     (string)
 
 highlight_unfinished_tasks~             (boolean)
     When enabled, highlights days based on their task status:
-    - Days with unfinished markdown tasks ("- [ ]", "- [/]", etc.) are
+    - Days with unfinished markdown tasks ("- [ ]", "* [ ]", "+ [ ]") are
       highlighted with the `Todo` highlight group
     - Days where the file doesn't exist are highlighted with the `Comment`
       highlight group
     - Completed tasks (configurable markers, default: "- [x]", "- [-]")
       are ignored
+    - Supports `-`, `*`, `+` markdown list markers
     Default: false
 
 completed_task_markers~                 (table)
     List of strings that mark completed tasks inside brackets.
-    For example, {"x", "-"} matches "- [x]" and "- [-]".
+    Each marker must be a single character (e.g., "x", "-", "✓", "✅").
+    Space character is not allowed as a marker.
+    For example, {"x", "-"} matches "- [x]" and "- [-]". Matching is exact - spaces in brackets are not trimmed.
+    Supports `-`, `*`, `+` markdown list markers.
     Default: {"x", "-"}
 
 ==============================================================================
