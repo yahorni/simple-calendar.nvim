@@ -6,7 +6,7 @@ A simple calendar plugin for Neovim.
 
 ## Features
 
-- Intuitive navigation using h/j/k/l keys
+- Navigation using h/j/k/l keys
 - Month switching using p/n keys
 - Date selection that opens files based on configurable pattern
 - Automatically opens on current file date when filename matches pattern
@@ -61,7 +61,7 @@ require("simple-calendar").setup({
 
 ### Path Pattern Support
 
-The `path_pattern` supports complex directory structures with date components:
+The `path_pattern` supports directory structures with date components:
 
 - **Simple pattern**: `%Y-%m-%d.md` → `2024-10-15.md`
 - **Complex patterns**:
@@ -75,9 +75,17 @@ Supported strftime tokens:
 - `%B` - Full month name (e.g., October)
 
 When `highlight_unfinished_tasks` is enabled:
-- Days with unfinished markdown tasks (`- [ ]`, `- [/]`, etc.) are highlighted with `Todo` highlight group
+- Days with unfinished markdown tasks (like `- [ ]`/`- [/]`/etc.) are highlighted with `Todo` highlight group
 - Days where the file doesn't exist are highlighted with `Comment` highlight group
 - Completed tasks (`- [x]`, `- [-]`) are ignored
+
+## Testing
+
+Run the tests:
+
+```bash
+nvim --headless -u tests/runner.lua
+```
 
 ## License
 

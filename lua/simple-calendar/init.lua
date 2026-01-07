@@ -673,4 +673,17 @@ function M.show_calendar(date)
     Navigation.setup_keybindings(state)
 end
 
+-- Export internal modules for testing when in test mode
+if vim.g and vim.g.SIMPLE_CALENDAR_TEST then
+    M._test = {
+        CalendarCore = CalendarCore,
+        FileUtils = FileUtils,
+        UI = UI,
+        Navigation = Navigation,
+        _config = _config,
+        MONTH_NAMES = MONTH_NAMES,
+        WEEKDAYS_HEADER = WEEKDAYS_HEADER,
+    }
+end
+
 return M
