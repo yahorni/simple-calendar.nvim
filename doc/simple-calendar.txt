@@ -16,10 +16,12 @@ INTRODUCTION                                                   *simple-calendar-
 
 simple-calendar.nvim is a simple calendar plugin for Neovim.
 
-Features:
+ Features:
 - Intuitive navigation using h/j/k/l keys
+- Additional Vim-style navigation keys (b/B/w/W/e/E/ge/gE) and arrow keys
 - Month switching using p/n keys
 - Date selection that opens files based on configurable pattern
+- Unified cursor and highlight (cursor always on right digit of selected day)
 
 ==============================================================================
 INSTALLATION                                                   *simple-calendar-installation*
@@ -71,18 +73,27 @@ highlight_unfinished_tasks~             (boolean)
 ==============================================================================
 KEYBINDINGS                                                 *simple-calendar-keybindings*
 
-When the calendar window is open:
+ When the calendar window is open:
+ The Neovim cursor is unified with the selected day highlight, always positioned on the right digit of the selected date.
 
-Key         Action~
----         ------
-h           Move left to previous day
-j           Move down to next week
-k           Move up to previous week
-l           Move right to next day
-p           Switch to previous month
-n           Switch to next month
-<CR>        Select current date and open corresponding file
-q           Close calendar window
+ Key         Action~
+ ---         ------
+ h           Move left to previous day
+ j           Move down to next week
+ k           Move up to previous week
+ l           Move right to next day
+ <Left>      Move left to previous day
+ <Right>     Move right to next day
+ <Up>        Move up to previous week
+ <Down>      Move down to next week
+ b, B, ge, gE Move left to previous day
+ w, W, e, E  Move right to next day
+ p           Switch to previous month
+ n           Switch to next month
+ <C-d>       Switch to previous month
+ <C-u>       Switch to next month
+ <CR>        Select current date and open corresponding file
+ q           Close calendar window
 
 ==============================================================================
 FUNCTIONS                                                   *simple-calendar-functions*

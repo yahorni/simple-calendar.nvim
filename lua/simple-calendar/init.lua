@@ -1,3 +1,4 @@
+-- TODO: type annotations for all types
 local M = {}
 
 local MONTH_NAMES = { "January", "February", "March", "April", "May", "June",
@@ -6,12 +7,45 @@ local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
 
 local _config = { path_pattern = "%Y-%m-%d.md", highlight_unfinished_tasks = false }
 
+-- Global state: track the calendar window to enforce single instance
+local _current_win = nil
+local _programmatic_cursor_move_count = 0
+
+-- Persistent autocmd group for cleanup
+local _au_group = vim.api.nvim_create_augroup("SimpleCalendarGlobal", {})
+
+-- Set up autocmd to clean up when calendar window closes
+vim.api.nvim_create_autocmd("WinClosed", {
+    group = _au_group,
+    callback = function(event)
+        if _current_win == event.win then
+            _current_win = nil
+        end
+    end,
+})
+
+local function with_programmatic_move(fn)
+    _programmatic_cursor_move_count = _programmatic_cursor_move_count + 1
+    local ok, err = pcall(fn)
+    _programmatic_cursor_move_count = _programmatic_cursor_move_count - 1
+    if not ok then error(err) end
+end
+
+local function close_calendar_window(win_to_close)
+    if win_to_close and vim.api.nvim_win_is_valid(win_to_close) then
+        vim.api.nvim_win_close(win_to_close, true)
+    end
+    if _current_win == win_to_close then
+        _current_win = nil
+    end
+end
+
 function M.setup(config)
     _config = config
 end
 
 local function get_day_status(date_table)
-    if not _config.highlight_unfinished_tasks then
+    if #_config.path_pattern == 0 or not _config.highlight_unfinished_tasks then
         return "normal"
     end
 
@@ -24,6 +58,7 @@ local function get_day_status(date_table)
 
     local lines = vim.fn.readfile(path)
     for _, line in ipairs(lines) do
+        -- TODO: move completed tasks options into config
         -- Match markdown task list items that are not completed (- [x] or - [-])
         -- This matches: - [ ], - [/], - [?], etc. but not - [x] or - [-]
         if line:match("^%s*%- %[%s*[^x%-]%]%s*") then
@@ -66,7 +101,44 @@ local function get_calendar_grid(now)
     return grid
 end
 
-local function update_highlight(buf, grid, selected_day, now)
+local function day_from_position(grid, line, col_pos)
+    if line < 0 or line >= #grid then
+        return nil
+    end
+    local week = grid[line + 1]
+    local day_idx = math.floor(col_pos / 3) + 1
+    if day_idx < 1 or day_idx > #week then
+        return nil
+    end
+    local day = week[day_idx].day
+    return day > 0 and day or nil
+end
+
+local function position_from_day(grid, day)
+    for week_idx, week in ipairs(grid) do
+        for day_idx, cell in ipairs(week) do
+            if cell.day == day then
+                local line = week_idx - 1
+                local col_val = (day_idx - 1) * 3 + 1
+                return { line = line, col = col_val }
+            end
+        end
+    end
+    return nil
+end
+
+local function ensure_cursor_position(win, grid, selected_day)
+    local pos = position_from_day(grid, selected_day)
+    if not pos then return end
+    local cur = vim.api.nvim_win_get_cursor(win)
+    if cur[1] ~= pos.line + 3 or cur[2] ~= pos.col then
+        with_programmatic_move(function()
+            vim.api.nvim_win_set_cursor(win, { pos.line + 3, pos.col })
+        end)
+    end
+end
+
+local function update_highlight(buf, win, grid, selected_day, now)
     -- Clear existing highlights
     vim.api.nvim_buf_clear_namespace(buf, -1, 0, -1)
 
@@ -94,9 +166,14 @@ local function update_highlight(buf, grid, selected_day, now)
             end
         end
     end
+
+    if win and selected_day then
+        ensure_cursor_position(win, grid, selected_day)
+    end
 end
 
-local function navigate_date(buf, grid, selected_day, direction, now)
+
+local function navigate_date(buf, win, grid, selected_day, direction, now)
     local days_in_month = tonumber(os.date("%d", os.time({ year = now.year, month = now.month + 1, day = 0 }))) or 31
     local new_day = selected_day
     local hit_boundary = false
@@ -128,7 +205,7 @@ local function navigate_date(buf, grid, selected_day, direction, now)
     end
 
     if new_day <= days_in_month and new_day >= 1 then
-        update_highlight(buf, grid, new_day, now)
+        update_highlight(buf, win, grid, new_day, now)
         return new_day, hit_boundary
     end
 
@@ -344,37 +421,27 @@ local function extract_date_from_filename()
     -- Try to match the pattern against the full path
     local captures = { full_path:match(pattern_info.regex) }
 
-    if #captures > 0 then
-        local year, month, day
-
-        -- Extract values using the tracked indices
-        if pattern_info.year_index > 0 then
-            year = captures[pattern_info.year_index]
-        end
-        if pattern_info.month_index > 0 then
-            month = captures[pattern_info.month_index]
-        end
-        if pattern_info.day_index > 0 then
-            day = captures[pattern_info.day_index]
-        end
-
-        -- Handle month names if present
-        if month and not tonumber(month) then
-            month = month_name_to_number(month)
-        end
-
-        if year and month and day then
-            return {
-                year = tonumber(year),
-                month = tonumber(month),
-                day = tonumber(day),
-            }
-        end
+    if #captures == 0 then
+        return nil
     end
 
-    -- Fallback: try to extract date from filename only
-    local filename = vim.fn.fnamemodify(current_file, ":t")
-    local year, month, day = filename:match("^(%d%d%d%d)-(%d%d)-(%d%d)%.md$")
+    -- Extract values using the tracked indices
+    local year, month, day
+    if pattern_info.year_index > 0 then
+        year = captures[pattern_info.year_index]
+    end
+    if pattern_info.month_index > 0 then
+        month = captures[pattern_info.month_index]
+    end
+    if pattern_info.day_index > 0 then
+        day = captures[pattern_info.day_index]
+    end
+
+    -- Handle month names if present
+    if month and not tonumber(month) then
+        month = month_name_to_number(month)
+    end
+
     if year and month and day then
         return {
             year = tonumber(year),
@@ -382,13 +449,128 @@ local function extract_date_from_filename()
             day = tonumber(day),
         }
     end
+end
 
-    return nil
+local function configure_navigation(buf, win, grid, calendar_lines, selected_day, now)
+    local function update_calendar_display(new_now, new_selected_day)
+        now = new_now
+        selected_day = new_selected_day
+        grid, calendar_lines = refresh_calendar(now)
+        vim.api.nvim_buf_set_option(buf, "modifiable", true)
+        vim.api.nvim_buf_set_option(buf, "readonly", false)
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, calendar_lines)
+        vim.api.nvim_buf_set_option(buf, "modifiable", false)
+        vim.api.nvim_buf_set_option(buf, "readonly", true)
+        update_highlight(buf, win, grid, selected_day, now)
+    end
+
+    local function handle_navigation(direction)
+        local month_direction = "next"
+        if direction == "left" or direction == "up" then
+            month_direction = "previous"
+        end
+
+        local mode
+        if direction == "left" or direction == "right" then
+            mode = "sequence" -- continue day sequence
+        elseif direction == "up" then
+            mode = "up"       -- preserve weekday in last week of previous month
+        else
+            mode = "down"     -- preserve weekday in first week of next month
+        end
+
+        local new_day, hit_boundary = navigate_date(buf, win, grid, selected_day, direction, now)
+        if hit_boundary then
+            local new_now = switch_month(now, selected_day, month_direction, mode)
+            update_calendar_display(new_now, new_now.day)
+        else
+            selected_day = new_day
+        end
+    end
+
+    local function handle_month_switch(direction)
+        local new_now = switch_month(now, selected_day, direction, nil)
+        update_calendar_display(new_now, new_now.day)
+    end
+
+    local function navigate_left()
+        handle_navigation("left")
+    end
+
+    local function navigate_right()
+        handle_navigation("right")
+    end
+
+    local function navigate_up()
+        handle_navigation("up")
+    end
+
+    local function navigate_down()
+        handle_navigation("down")
+    end
+
+    local function close_calendar()
+        close_calendar_window(win)
+    end
+
+    local function select_date()
+        close_calendar_window(win)
+        handle_date_selection(selected_day, now)
+    end
+
+    local function switch_month_previous()
+        handle_month_switch("previous")
+    end
+
+    local function switch_month_next()
+        handle_month_switch("next")
+    end
+
+    -- TODO: move keys to config
+    local function map(key, callback, command)
+        vim.api.nvim_buf_set_keymap(buf, "n", key, command or "", { noremap = true, silent = true, callback = callback })
+    end
+
+    map("q", close_calendar)
+    map("<CR>", select_date)
+
+    map("p", switch_month_previous)
+    map("n", switch_month_next)
+
+    map("<C-d>", switch_month_previous)
+    map("<C-u>", switch_month_next)
+
+    map("h", navigate_left)
+    map("l", navigate_right)
+    map("k", navigate_up)
+    map("j", navigate_down)
+
+    map("<Left>", navigate_left)
+    map("<Right>", navigate_right)
+    map("<Up>", navigate_up)
+    map("<Down>", navigate_down)
+
+    map("b", navigate_left)
+    map("B", navigate_left)
+    map("w", navigate_right)
+    map("W", navigate_right)
+
+    map("ge", navigate_left)
+    map("gE", navigate_left)
+    map("e", navigate_right)
+    map("E", navigate_right)
 end
 
 function M.show_calendar(date)
-    local now
-    local selected_day
+    -- Clean up any invalid window reference
+    if _current_win and not vim.api.nvim_win_is_valid(_current_win) then
+        _current_win = nil
+    end
+
+    -- Close any existing calendar window before creating a new one
+    close_calendar_window(_current_win)
+
+    local now, selected_day
 
     if date then
         now = date
@@ -435,89 +617,42 @@ function M.show_calendar(date)
         style = "minimal",
         border = "rounded",
     })
-    vim.api.nvim_win_set_option(win, "cursorline", false)
-    vim.api.nvim_win_set_option(win, "cursorcolumn", false)
+     vim.api.nvim_win_set_option(win, "cursorline", false)
+     vim.api.nvim_win_set_option(win, "cursorcolumn", false)
 
-    update_highlight(buf, grid, selected_day, now)
+     _current_win = win
 
-    local function update_calendar_display(new_now, new_selected_day)
-        now = new_now
-        selected_day = new_selected_day
-        grid, calendar_lines = refresh_calendar(now)
-        vim.api.nvim_buf_set_option(buf, "modifiable", true)
-        vim.api.nvim_buf_set_option(buf, "readonly", false)
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, calendar_lines)
-        vim.api.nvim_buf_set_option(buf, "modifiable", false)
-        vim.api.nvim_buf_set_option(buf, "readonly", true)
-        update_highlight(buf, grid, selected_day, now)
-    end
+    local au_group = vim.api.nvim_create_augroup("SimpleCalendarCursor", { clear = true })
+    vim.api.nvim_create_autocmd("CursorMoved", {
+        group = au_group,
+        buffer = buf,
+        callback = function()
+            if _programmatic_cursor_move_count > 0 then
+                return
+            end
 
-    local function handle_navigation(direction)
-        local month_direction = "next"
-        if direction == "left" or direction == "up" then
-            month_direction = "previous"
-        end
+            local cursor = vim.api.nvim_win_get_cursor(win)
+            local buffer_line = cursor[1] - 1
+            local grid_line = buffer_line - 2
+            local cursor_col = cursor[2]
 
-        local mode
-        if direction == "left" or direction == "right" then
-            mode = "sequence" -- h/l: continue day sequence
-        elseif direction == "up" then
-            mode = "up"       -- k: preserve weekday in last week of previous month
-        else
-            mode = "down"     -- j: preserve weekday in first week of next month
-        end
+            if grid_line >= 0 and grid_line < #grid then
+                local current_day = day_from_position(grid, grid_line, cursor_col)
+                if current_day and current_day ~= selected_day then
+                    selected_day = current_day
+                    update_highlight(buf, win, grid, selected_day, now)
+                else
+                    ensure_cursor_position(win, grid, selected_day)
+                end
+            else
+                ensure_cursor_position(win, grid, selected_day)
+            end
+        end,
+    })
 
-        local new_day, hit_boundary = navigate_date(buf, grid, selected_day, direction, now)
-        if hit_boundary then
-            local new_now = switch_month(now, selected_day, month_direction, mode)
-            update_calendar_display(new_now, new_now.day)
-        else
-            selected_day = new_day
-        end
-    end
+    update_highlight(buf, win, grid, selected_day, now)
 
-    local function handle_month_switch(direction)
-        local new_now = switch_month(now, selected_day, direction, nil)
-        update_calendar_display(new_now, new_now.day)
-    end
-
-    local function navigate_left()
-        handle_navigation("left")
-    end
-
-    local function navigate_right()
-        handle_navigation("right")
-    end
-
-    local function navigate_up()
-        handle_navigation("up")
-    end
-
-    local function navigate_down()
-        handle_navigation("down")
-    end
-
-    local function select_date()
-        vim.api.nvim_win_close(win, true)
-        handle_date_selection(selected_day, now)
-    end
-
-    local function switch_month_previous()
-        handle_month_switch("previous")
-    end
-
-    local function switch_month_next()
-        handle_month_switch("next")
-    end
-
-    vim.api.nvim_buf_set_keymap(buf, "n", "q", "<cmd>close<cr>", { noremap = true, silent = true })
-    vim.api.nvim_buf_set_keymap(buf, "n", "<CR>", "", { noremap = true, silent = true, callback = select_date })
-    vim.api.nvim_buf_set_keymap(buf, "n", "h", "", { noremap = true, silent = true, callback = navigate_left })
-    vim.api.nvim_buf_set_keymap(buf, "n", "l", "", { noremap = true, silent = true, callback = navigate_right })
-    vim.api.nvim_buf_set_keymap(buf, "n", "k", "", { noremap = true, silent = true, callback = navigate_up })
-    vim.api.nvim_buf_set_keymap(buf, "n", "j", "", { noremap = true, silent = true, callback = navigate_down })
-    vim.api.nvim_buf_set_keymap(buf, "n", "p", "", { noremap = true, silent = true, callback = switch_month_previous })
-    vim.api.nvim_buf_set_keymap(buf, "n", "n", "", { noremap = true, silent = true, callback = switch_month_next })
+    configure_navigation(buf, win, grid, calendar_lines, selected_day, now)
 end
 
 return M
