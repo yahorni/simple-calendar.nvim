@@ -18,7 +18,7 @@ function M.run()
     local original_filereadable = vim.fn.filereadable
     local original_readfile = vim.fn.readfile
     local original_buf_get_name = vim.api.nvim_buf_get_name
-    local original_config_pattern = _config.path_pattern
+    local original_config_pattern = _config.daily_path_pattern
     local original_config_highlight = _config.highlight_unfinished_tasks
 
     -- Mock functions with configurable return values
@@ -44,7 +44,7 @@ function M.run()
         vim.fn.filereadable = original_filereadable
         vim.fn.readfile = original_readfile
         vim.api.nvim_buf_get_name = original_buf_get_name
-        _config.path_pattern = original_config_pattern
+        _config.daily_path_pattern = original_config_pattern
         _config.highlight_unfinished_tasks = original_config_highlight
     end
 
@@ -99,7 +99,7 @@ function M.run()
         -- Set mock return value
         mock_buf_get_name_return = "/home/user/2025-01-15.md"
         -- Set config pattern to default
-        _config.path_pattern = "%Y-%m-%d.md"
+        _config.daily_path_pattern = "%Y-%m-%d.md"
 
         local date = FileUtils.extract_date_from_filename()
 
@@ -111,7 +111,7 @@ function M.run()
 
     assert.run_test("extract_date_from_filename - month name pattern", function()
         mock_buf_get_name_return = "/home/user/notes/January-15-2025.txt"
-        _config.path_pattern = "notes/%B-%d-%Y.txt"
+        _config.daily_path_pattern = "notes/%B-%d-%Y.txt"
 
         local date = FileUtils.extract_date_from_filename()
 
@@ -123,7 +123,7 @@ function M.run()
 
     assert.run_test("extract_date_from_filename - no match", function()
         mock_buf_get_name_return = "/home/user/random-file.txt"
-        _config.path_pattern = "%Y-%m-%d.md"
+        _config.daily_path_pattern = "%Y-%m-%d.md"
 
         local date = FileUtils.extract_date_from_filename()
 
@@ -142,7 +142,7 @@ function M.run()
     assert.run_test("get_day_status - missing file", function()
         mock_filereadable_return = 0
         mock_readfile_calls = 0 -- reset counter
-        _config.path_pattern = "%Y-%m-%d.md"
+        _config.daily_path_pattern = "%Y-%m-%d.md"
         _config.highlight_unfinished_tasks = true
 
         local date = { year = 2025, month = 1, day = 15 }
@@ -156,7 +156,7 @@ function M.run()
         mock_filereadable_return = 1
         mock_readfile_calls = 0 -- reset counter
         mock_readfile_return = { "# Daily log", "- [x] Task done", "- [-] Another done" }
-        _config.path_pattern = "%Y-%m-%d.md"
+        _config.daily_path_pattern = "%Y-%m-%d.md"
         _config.highlight_unfinished_tasks = true
 
         local date = { year = 2025, month = 1, day = 15 }
@@ -170,13 +170,41 @@ function M.run()
         mock_filereadable_return = 1
         mock_readfile_calls = 0 -- reset counter
         mock_readfile_return = { "# Daily log", "- [ ] Unfinished task", "- [x] Done task" }
-        _config.path_pattern = "%Y-%m-%d.md"
+        _config.daily_path_pattern = "%Y-%m-%d.md"
         _config.highlight_unfinished_tasks = true
 
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)
 
         assert.assert_equal(status, "unfinished", "File with unfinished tasks should return 'unfinished'")
+        assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once")
+    end)
+
+    assert.run_test("get_day_status - whitespace handling in task lists", function()
+        mock_filereadable_return = 1
+        mock_readfile_calls = 0 -- reset counter
+        mock_readfile_return = {
+            "# Daily log",
+            "- [ x] Task with leading space",
+            "- [x ] Task with trailing space",
+            "- [  x] Task with multiple leading spaces",
+            "- [ x ] Task with spaces both sides",
+            "- [ ] Empty task (single space)",
+            "- [  ] Empty task (multiple spaces)",
+            "- [-] Dash completed",
+            "- [ -] Dash with leading space",
+            "- [- ] Dash with trailing space",
+            "- [X] Uppercase X completed",
+            "- [ X ] Uppercase X with spaces",
+        }
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.highlight_unfinished_tasks = true
+
+        local date = { year = 2025, month = 1, day = 15 }
+        local status = FileUtils.get_day_status(date)
+
+        -- Should return "unfinished" because we have empty tasks (- [ ] and - [  ])
+        assert.assert_equal(status, "unfinished", "File with empty tasks should return 'unfinished'")
         assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once")
     end)
 
@@ -190,7 +218,7 @@ function M.run()
     end)
 
     assert.run_test("get_day_status - empty path pattern", function()
-        _config.path_pattern = ""
+        _config.daily_path_pattern = ""
         _config.highlight_unfinished_tasks = true
 
         local date = { year = 2025, month = 1, day = 15 }

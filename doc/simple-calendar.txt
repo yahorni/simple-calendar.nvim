@@ -50,13 +50,14 @@ CONFIGURATION                                               *simple-calendar-con
 No configuration required. Optional setup:
 >
     require("simple-calendar").setup({
-        path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md"
+        daily_path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md"
+        highlight_unfinished_tasks = true
     })
 <
 
 Options:
 
-path_pattern~                           (string)
+daily_path_pattern~                     (string)
     Date format pattern for file creation when selecting a date. Uses Lua's
     os.date() format.
     Default: "%Y-%m-%d.md"
@@ -108,7 +109,7 @@ setup(config)~
     Configures the plugin with the provided options.
 >
     require("simple-calendar").setup({
-        path_pattern = "%Y-%m-%d.md"  -- Default value
+        daily_path_pattern = "%Y-%m-%d.md"  -- Default value
     })
 <
 

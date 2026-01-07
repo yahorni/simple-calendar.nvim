@@ -5,7 +5,11 @@ local MONTH_NAMES = { "January", "February", "March", "April", "May", "June",
 local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
 
 -- Global state
-local _config = { path_pattern = "%Y-%m-%d.md", highlight_unfinished_tasks = false }
+local _config = {
+    daily_path_pattern = "%Y-%m-%d.md",
+    highlight_unfinished_tasks = false,
+}
+
 local _current_win = nil
 local _programmatic_cursor_move_count = 0
 
@@ -189,12 +193,12 @@ end
 local FileUtils = {}
 
 function FileUtils.get_day_status(date_table)
-    if #_config.path_pattern == 0 or not _config.highlight_unfinished_tasks then
+    if #_config.daily_path_pattern == 0 or not _config.highlight_unfinished_tasks then
         return "normal"
     end
 
     local timestamp = os.time(date_table)
-    local path = os.date(_config.path_pattern, timestamp)
+    local path = os.date(_config.daily_path_pattern, timestamp)
 
     if vim.fn.filereadable(path) == 0 then
         return "missing"
@@ -281,7 +285,7 @@ function FileUtils.extract_date_from_filename()
     end
 
     local full_path = vim.fn.fnamemodify(current_file, ":p")
-    local pattern = _config.path_pattern
+    local pattern = _config.daily_path_pattern
 
     -- Convert pattern to regex and get capture group indices
     local pattern_info = FileUtils.convert_pattern_to_regex(pattern)
@@ -323,7 +327,7 @@ function FileUtils.handle_date_selection(selected_day, now)
     if selected_day then
         local date_table = { year = now.year, month = now.month, day = selected_day }
         local timestamp = os.time(date_table)
-        local path = os.date(_config.path_pattern, timestamp)
+        local path = os.date(_config.daily_path_pattern, timestamp)
 
         if vim.fn.filereadable(path) == 0 then
             local choice = vim.fn.confirm(

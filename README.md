@@ -27,7 +27,7 @@ Open the calendar:
 :lua require('simple-calendar').show_calendar()
 ```
 
-When opened, the calendar will automatically show the date from the current filename if it matches the `path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
+When opened, the calendar will automatically show the date from the current filename if it matches the `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
 
 Or create a keymap:
 
@@ -54,14 +54,16 @@ No configuration required. Optional setup:
 
 ```lua
 require("simple-calendar").setup({
-    path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md",
-    highlight_unfinished_tasks = false
+    -- Path pattern to daily notes
+    daily_path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md",
+    -- Highlight days whose daily note contains unfinished tasks
+    highlight_unfinished_tasks = true
 })
 ```
 
 ### Path Pattern Support
 
-The `path_pattern` supports directory structures with date components:
+The `daily_path_pattern` supports directory structures with date components:
 
 - **Simple pattern**: `%Y-%m-%d.md` → `2024-10-15.md`
 - **Complex patterns**:
