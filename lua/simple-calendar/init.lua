@@ -2,7 +2,7 @@ local M = {}
 
 -- Default config
 local _config = {
-    daily_path_pattern = "%Y-%m-%d.md",
+    daily_path_pattern = "",
     highlight_unfinished_tasks = false,
     completed_task_markers = { "x", "-" },
 }
@@ -665,14 +665,14 @@ function Navigation.setup_keybindings(state)
     map("<C-u>", function() Navigation.switch_month(state, "next") end)
 
     -- Select day
-    map("<CR>", function()
-        UI.close_calendar_window(win)
-        FileUtils.handle_date_selection(state.selected_day, state.now)
-    end)
-    map("o", function()
-        UI.close_calendar_window(win)
-        FileUtils.handle_date_selection(state.selected_day, state.now)
-    end)
+    local function handle_selection()
+        if #_config.daily_path_pattern ~= 0 then
+            UI.close_calendar_window(win)
+            FileUtils.handle_date_selection(state.selected_day, state.now)
+        end
+    end
+    map("<CR>", handle_selection)
+    map("o", handle_selection)
 
     -- Close calendar
     map("q", function() UI.close_calendar_window(win) end)
