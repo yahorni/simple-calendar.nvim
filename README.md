@@ -81,7 +81,7 @@ Supported strftime tokens:
 When `highlight_unfinished_tasks` is enabled:
 - Days with unfinished markdown tasks (like `- [ ]`, `* [ ]`, `+ [ ]`) are highlighted with `Todo` highlight group
 - Days where the file doesn't exist are highlighted with `Comment` highlight group
-- Completed tasks (configurable markers, default: `- [x]`, `- [-]`) are ignored
+- Days with only completed tasks (configurable markers, default: `- [x]`, `- [-]`) highlighted as usual
 - Supports `-`, `*`, `+` markdown list markers
 
 Use `completed_task_markers` to customize which bracket contents mark a task as completed.
