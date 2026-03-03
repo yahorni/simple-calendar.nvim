@@ -676,6 +676,7 @@ function Navigation.setup_keybindings(state)
 
     -- Close calendar
     map("q", function() UI.close_calendar_window(win) end)
+    map("<esc>", function() UI.close_calendar_window(win) end)
 end
 
 -- ============================================================================
