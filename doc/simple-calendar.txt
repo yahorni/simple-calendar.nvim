@@ -129,7 +129,7 @@ setup(config)~
 ==============================================================================
 LICENSE                                                       *simple-calendar-license*
 
-This plugin is licensed under the GNU Affero General Public License v3.0.
+This plugin is licensed under the MIT License.
 See the LICENSE file for full details.
 
 ==============================================================================

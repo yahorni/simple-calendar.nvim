@@ -97,4 +97,4 @@ nvim --headless -u tests/runner.lua
 
 ## License
 
-GNU Affero General Public License v3.0
+MIT License
