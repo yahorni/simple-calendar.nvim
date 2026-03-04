@@ -39,14 +39,14 @@ vim.keymap.set('n', '<leader>c', require("simple-calendar").show_calendar, { des
 
 When the calendar is open:
 
-- `h` - Move left to previous day
-- `j` - Move down to next week
-- `k` - Move up to previous week
-- `l` - Move right to next day
-- `p` - Switch to previous month
-- `n` - Switch to next month
-- `<CR>` - Select current date and open corresponding file
-- `q` - Close calendar window
+- `h/<left>` - Move left to previous day
+- `j/<down>` - Move down to next week
+- `k/<up>` - Move up to previous week
+- `l/<right>` - Move right to next day
+- `p/<c-d>` - Switch to previous month
+- `n/<c-u>` - Switch to next month
+- `o/<cr>`  - Select current date and open corresponding file
+- `q/<esc>` - Close calendar window
 
 ## Configuration
 

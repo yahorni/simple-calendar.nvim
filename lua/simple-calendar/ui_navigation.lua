@@ -145,19 +145,19 @@ end
 function UI.reposition_window(win)
     if not win or not vim.api.nvim_win_is_valid(win) then return end
 
-    local config = vim.api.nvim_win_get_config(win)
-    if not config or not config.width or not config.height then return end
+    local win_config = vim.api.nvim_win_get_config(win)
+    if not win_config or not win_config.width or not win_config.height then return end
 
-    local col, row = UI.calculate_window_position(config.width, config.height)
+    local col, row = UI.calculate_window_position(win_config.width, win_config.height)
     if not col then
         -- Window no longer fits, close it
         UI.close_calendar_window(win)
         return
     end
 
-    config.col = col
-    config.row = row
-    vim.api.nvim_win_set_config(win, config)
+    win_config.col = col
+    win_config.row = row
+    vim.api.nvim_win_set_config(win, win_config)
 end
 
 local function navigate_date(state, direction)
@@ -269,10 +269,10 @@ function Navigation.setup_keybindings(state)
     map("j", function() Navigation.handle(state, "down") end)
 
     -- Arrow keys
-    map("<Left>", function() Navigation.handle(state, "left") end)
-    map("<Right>", function() Navigation.handle(state, "right") end)
-    map("<Up>", function() Navigation.handle(state, "up") end)
-    map("<Down>", function() Navigation.handle(state, "down") end)
+    map("<left>", function() Navigation.handle(state, "left") end)
+    map("<right>", function() Navigation.handle(state, "right") end)
+    map("<up>", function() Navigation.handle(state, "up") end)
+    map("<down>", function() Navigation.handle(state, "down") end)
 
     -- Vim-style navigation keys
     map("b", function() Navigation.handle(state, "left") end)
@@ -287,8 +287,8 @@ function Navigation.setup_keybindings(state)
     -- Month switching
     map("p", function() Navigation.switch_month(state, "previous") end)
     map("n", function() Navigation.switch_month(state, "next") end)
-    map("<C-d>", function() Navigation.switch_month(state, "previous") end)
-    map("<C-u>", function() Navigation.switch_month(state, "next") end)
+    map("<c-d>", function() Navigation.switch_month(state, "previous") end)
+    map("<c-u>", function() Navigation.switch_month(state, "next") end)
 
     -- Select day
     local function handle_selection()
@@ -297,8 +297,8 @@ function Navigation.setup_keybindings(state)
             file_utils.handle_date_selection(state.selected_day, state.now)
         end
     end
-    map("<CR>", handle_selection)
     map("o", handle_selection)
+    map("<cr>", handle_selection)
 
     -- Close calendar
     map("q", function() UI.close_calendar_window(win) end)
