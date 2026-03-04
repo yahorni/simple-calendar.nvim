@@ -6,7 +6,6 @@ local plugin = require("simple-calendar")
 
 -- Get test exports
 local CalendarCore = plugin._test.CalendarCore
-local MONTH_NAMES = plugin._test.MONTH_NAMES
 
 local M = {}
 
@@ -15,7 +14,7 @@ function M.run()
 
     -- Test: month_name_to_number
     assert.run_test("month_name_to_number - valid month names", function()
-        for i, month_name in ipairs(MONTH_NAMES) do
+        for i, month_name in ipairs(CalendarCore.MONTH_NAMES) do
             -- Test exact case
             local result = CalendarCore.month_name_to_number(month_name)
             assert.assert_equal(result, i, string.format("Month '%s' should return %d", month_name, i))
@@ -32,6 +31,61 @@ function M.run()
             result = CalendarCore.month_name_to_number("jAnUaRy")
             assert.assert_equal(result, 1, "Mixed case 'jAnUaRy' should return 1")
         end
+    end)
+
+    assert.run_test("month_name_to_number - month abbreviations", function()
+        for i, abbr in ipairs(CalendarCore.MONTH_ABBR) do
+            -- Test exact case
+            local result = CalendarCore.month_name_to_number(abbr)
+            assert.assert_equal(result, i, string.format("Abbreviation '%s' should return %d", abbr, i))
+
+            -- Test lowercase
+            result = CalendarCore.month_name_to_number(abbr:lower())
+            assert.assert_equal(result, i, string.format("Lowercase abbreviation '%s' should return %d", abbr:lower(), i))
+
+            -- Test uppercase
+            result = CalendarCore.month_name_to_number(abbr:upper())
+            assert.assert_equal(result, i, string.format("Uppercase abbreviation '%s' should return %d", abbr:upper(), i))
+        end
+    end)
+
+    assert.run_test("weekday_name_to_number - valid weekday names", function()
+        for i, weekday_name in ipairs(CalendarCore.WEEKDAY_NAMES) do
+            local result = CalendarCore.weekday_name_to_number(weekday_name)
+            assert.assert_equal(result, i, string.format("Weekday '%s' should return %d", weekday_name, i))
+
+            result = CalendarCore.weekday_name_to_number(weekday_name:lower())
+            assert.assert_equal(result, i,
+                string.format("Lowercase weekday '%s' should return %d", weekday_name:lower(), i))
+
+            result = CalendarCore.weekday_name_to_number(weekday_name:upper())
+            assert.assert_equal(result, i,
+                string.format("Uppercase weekday '%s' should return %d", weekday_name:upper(), i))
+        end
+    end)
+
+    assert.run_test("weekday_name_to_number - weekday abbreviations", function()
+        for i, abbr in ipairs(CalendarCore.WEEKDAY_ABBR) do
+            local result = CalendarCore.weekday_name_to_number(abbr)
+            assert.assert_equal(result, i, string.format("Abbreviation '%s' should return %d", abbr, i))
+
+            result = CalendarCore.weekday_name_to_number(abbr:lower())
+            assert.assert_equal(result, i, string.format("Lowercase abbreviation '%s' should return %d", abbr:lower(), i))
+
+            result = CalendarCore.weekday_name_to_number(abbr:upper())
+            assert.assert_equal(result, i, string.format("Uppercase abbreviation '%s' should return %d", abbr:upper(), i))
+        end
+    end)
+
+    assert.run_test("weekday_name_to_number - invalid weekday name", function()
+        local result = CalendarCore.weekday_name_to_number("NotAWeekday")
+        assert.assert_nil(result, "Invalid weekday name should return nil")
+
+        result = CalendarCore.weekday_name_to_number("")
+        assert.assert_nil(result, "Empty string should return nil")
+
+        result = CalendarCore.weekday_name_to_number(nil)
+        assert.assert_nil(result, "nil should return nil")
     end)
 
     assert.run_test("month_name_to_number - invalid month name", function()

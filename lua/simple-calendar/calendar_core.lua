@@ -1,6 +1,25 @@
-local config = require("simple-calendar.config")
-
 local CalendarCore = {}
+
+local WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
+local WEEKDAY_NAMES = {
+    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+}
+local WEEKDAY_ABBR = {
+    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
+}
+local MONTH_ABBR = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+}
+local MONTH_NAMES = {
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+}
+
+CalendarCore.WEEKDAY_NAMES = WEEKDAY_NAMES
+CalendarCore.WEEKDAY_ABBR = WEEKDAY_ABBR
+CalendarCore.MONTH_NAMES = MONTH_NAMES
+CalendarCore.MONTH_ABBR = MONTH_ABBR
 
 function CalendarCore.get_calendar_grid(now)
     local first_day = os.time({ year = now.year, month = now.month, day = 1 })
@@ -46,8 +65,8 @@ end
 function CalendarCore.refresh_calendar(now)
     local grid = CalendarCore.get_calendar_grid(now)
 
-    local header = CalendarCore.format_header(config.MONTH_NAMES[now.month], now.year, #config.WEEKDAYS_HEADER)
-    local calendar_lines = { header, config.WEEKDAYS_HEADER }
+    local header = CalendarCore.format_header(MONTH_NAMES[now.month], now.year, #WEEKDAYS_HEADER)
+    local calendar_lines = { header, WEEKDAYS_HEADER }
 
     for _, week in ipairs(grid) do
         local week_line = {}
@@ -78,7 +97,6 @@ function CalendarCore.switch_month(now, selected_day, direction, mode)
         end
     end
 
-    -- Calculate days in new month
     local next_month_time = os.time({ year = new_year, month = new_month + 1, day = 0 })
     local days_in_new_month = tonumber(os.date("%d", next_month_time)) or 31
 
@@ -133,8 +151,34 @@ function CalendarCore.month_name_to_number(month_name)
     if type(month_name) ~= "string" then
         return nil
     end
-    for i, name in ipairs(config.MONTH_NAMES) do
-        if name:lower() == month_name:lower() then
+
+    local lower_name = month_name:lower()
+    for i, name in ipairs(MONTH_NAMES) do
+        if name:lower() == lower_name then
+            return i
+        end
+    end
+    for i, abbr in ipairs(MONTH_ABBR) do
+        if abbr:lower() == lower_name then
+            return i
+        end
+    end
+    return nil
+end
+
+function CalendarCore.weekday_name_to_number(weekday_name)
+    if type(weekday_name) ~= "string" then
+        return nil
+    end
+
+    local lower_name = weekday_name:lower()
+    for i, name in ipairs(WEEKDAY_NAMES) do
+        if name:lower() == lower_name then
+            return i
+        end
+    end
+    for i, abbr in ipairs(WEEKDAY_ABBR) do
+        if abbr:lower() == lower_name then
             return i
         end
     end

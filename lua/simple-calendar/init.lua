@@ -2,17 +2,22 @@ local config = require("simple-calendar.config")
 local calendar_core = require("simple-calendar.calendar_core")
 local file_utils = require("simple-calendar.file_utils")
 local ui_navigation = require("simple-calendar.ui_navigation")
+local journal = require("simple-calendar.journal")
 
 local M = {}
 
--- Global state (shared with UI module)
 local _current_win = nil
-local _programmatic_cursor_move_count = 0
 
--- Share state with UI module
-ui_navigation.set_shared_state({
-    _current_win = _current_win,
-    _programmatic_cursor_move_count = _programmatic_cursor_move_count,
+local _global_au_group = vim.api.nvim_create_augroup("SimpleCalendarGlobal", {})
+
+-- Set up autocmd to clean up when calendar window closes
+vim.api.nvim_create_autocmd("WinClosed", {
+    group = _global_au_group,
+    callback = function(event)
+        if _current_win == event.win then
+            _current_win = nil
+        end
+    end,
 })
 
 function M.setup(user_config)
@@ -25,59 +30,46 @@ function M.setup(user_config)
         vim.notify("simple-calendar: " .. message, warn_level)
     end
 
-    for k, v in pairs(user_config) do
-        if k == "completed_task_markers" and type(v) == "table" then
-            -- Validate that all markers are single characters (space not allowed)
-            local valid_markers = {}
-            for _, marker in ipairs(v) do
-                if type(marker) ~= "string" then
-                    log_warn("Invalid completed_task_marker given - must be 'string'")
-                elseif vim.fn.strchars(marker) ~= 1 then
-                    log_warn("Invalid completed_task_marker '" .. marker .. "' - must be a single character")
-                elseif marker == " " then
-                    log_warn("Invalid completed_task_marker ' ' - space is not allowed as a marker")
+    local function validate_completed_task_markers(markers)
+        local valid_markers = {}
+        for _, marker in ipairs(markers) do
+            if type(marker) ~= "string" then
+                log_warn("Invalid completed_task_marker given - must be 'string'")
+            elseif vim.fn.strchars(marker) ~= 1 then
+                log_warn("Invalid completed_task_marker '" .. marker .. "' - must be a single character")
+            elseif marker == " " then
+                log_warn("Invalid completed_task_marker ' ' - space is not allowed as a marker")
+            else
+                table.insert(valid_markers, marker)
+            end
+        end
+        return valid_markers
+    end
+
+    for key, value in pairs(user_config) do
+        local default = config[key]
+        if default ~= nil then
+            if key == "completed_task_markers" then
+                if type(value) == "table" then
+                    config[key] = validate_completed_task_markers(value)
                 else
-                    table.insert(valid_markers, marker)
+                    log_warn("completed_task_markers must be a table")
+                end
+            else
+                if type(value) == type(default) then
+                    config[key] = value
+                else
+                    log_warn(key .. " must be " .. type(default))
                 end
             end
-            config._config[k] = valid_markers
-        else
-            config._config[k] = v
         end
     end
 end
-
--- Persistent autocmd group for cleanup
-local _au_group = vim.api.nvim_create_augroup("SimpleCalendarGlobal", {})
-
--- Set up autocmd to clean up when calendar window closes
-vim.api.nvim_create_autocmd("WinClosed", {
-    group = _au_group,
-    callback = function(event)
-        if _current_win == event.win then
-            _current_win = nil
-            ui_navigation.set_shared_state({ _current_win = nil })
-        end
-    end,
-})
-
-local function with_programmatic_move(fn)
-    _programmatic_cursor_move_count = _programmatic_cursor_move_count + 1
-    ui_navigation.set_shared_state({ _programmatic_cursor_move_count = _programmatic_cursor_move_count })
-    local ok, err = pcall(fn)
-    _programmatic_cursor_move_count = _programmatic_cursor_move_count - 1
-    ui_navigation.set_shared_state({ _programmatic_cursor_move_count = _programmatic_cursor_move_count })
-    if not ok then error(err) end
-end
-
--- Make with_programmatic_move accessible to UI module
-ui_navigation.set_shared_state({ with_programmatic_move = with_programmatic_move })
 
 function M.show_calendar(date)
     -- Clean up any invalid window reference
     if _current_win and not vim.api.nvim_win_is_valid(_current_win) then
         _current_win = nil
-        ui_navigation.set_shared_state({ _current_win = nil })
     end
 
     -- Close any existing calendar window before creating a new one
@@ -136,48 +128,20 @@ function M.show_calendar(date)
     vim.api.nvim_win_set_option(state.win, "cursorcolumn", false)
 
     _current_win = state.win
-    ui_navigation.set_shared_state({ _current_win = state.win })
 
-    local au_group = vim.api.nvim_create_augroup("SimpleCalendarCursor", { clear = true })
-    vim.api.nvim_create_autocmd("CursorMoved", {
-        group = au_group,
-        buffer = state.buf,
-        callback = function()
-            if _programmatic_cursor_move_count > 0 then
-                return
-            end
-
-            local cursor = vim.api.nvim_win_get_cursor(state.win)
-            local buffer_line = cursor[1] - 1
-            local grid_line = buffer_line - 2
-            local cursor_col = cursor[2]
-
-            if grid_line >= 0 and grid_line < #state.grid then
-                local current_day = ui_navigation.UI.day_from_position(state.grid, grid_line, cursor_col)
-                if current_day and current_day ~= state.selected_day then
-                    state.selected_day = current_day
-                    ui_navigation.UI.update_highlight(state)
-                else
-                    ui_navigation.UI.ensure_cursor_position(state)
-                end
-            else
-                ui_navigation.UI.ensure_cursor_position(state)
-            end
-        end,
-    })
-
-    vim.api.nvim_create_autocmd("VimResized", {
-        group = au_group,
-        callback = function()
-            if state.win and vim.api.nvim_win_is_valid(state.win) then
-                ui_navigation.UI.reposition_window(state.win)
-            end
-        end,
-    })
-
+    ui_navigation.UI.configure_events_handling(state)
     ui_navigation.UI.update_highlight(state)
-
     ui_navigation.Navigation.setup_keybindings(state)
+end
+
+function M.journal(arg)
+    local string_or_date
+    if type(arg) == "table" and arg["args"] ~= nil then
+        string_or_date = arg.args
+    else
+        string_or_date = arg
+    end
+    return journal.open_day(string_or_date)
 end
 
 -- Export internal modules for testing when in test mode
@@ -187,8 +151,7 @@ if vim.g and vim.g.SIMPLE_CALENDAR_TEST then
         FileUtils = file_utils,
         UI = ui_navigation.UI,
         Navigation = ui_navigation.Navigation,
-        _config = config._config,
-        MONTH_NAMES = config.MONTH_NAMES,
+        _config = config,
     }
 end
 

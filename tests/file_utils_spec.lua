@@ -21,10 +21,17 @@ function M.run()
     local original_config_pattern = _config.daily_path_pattern
     local original_config_highlight = _config.highlight_unfinished_tasks
     local original_config_completed_markers = _config.completed_task_markers
+    local original_config_use_lowercase = _config.use_lowercase_daily_path
 
     -- Mock functions with configurable return values
     local mock_filereadable_return = 0
-    local mock_filereadable = function(_path) return mock_filereadable_return end
+    local mock_filereadable = function(path)
+        if type(mock_filereadable_return) == "table" then
+            return mock_filereadable_return[path] or 0
+        else
+            return mock_filereadable_return
+        end
+    end
     vim.fn.filereadable = mock_filereadable
 
     local mock_readfile_calls = 0
@@ -48,6 +55,7 @@ function M.run()
         _config.daily_path_pattern = original_config_pattern
         _config.highlight_unfinished_tasks = original_config_highlight
         _config.completed_task_markers = original_config_completed_markers
+        _config.use_lowercase_daily_path = original_config_use_lowercase
     end
 
     -- Test: convert_pattern_to_regex - basic patterns
@@ -96,6 +104,38 @@ function M.run()
         assert.assert_equal(result.regex, "daily%-notes%.txt", "Regex should escape hyphens and dot")
     end)
 
+    assert.run_test("convert_pattern_to_regex - month abbreviation pattern", function()
+        local pattern = "%b-%d-%Y.md"
+        local result = FileUtils.convert_pattern_to_regex(pattern)
+
+        assert.assert_equal(result.year_index, 3, "Year should be capture group 3")
+        assert.assert_equal(result.month_index, 1, "Month abbreviation should be capture group 1")
+        assert.assert_equal(result.day_index, 2, "Day should be capture group 2")
+        assert.assert_equal(result.regex, "(%a+)%-(%d%d)%-(%d%d%d%d)%.md", "Regex should match month abbreviation")
+    end)
+
+    assert.run_test("convert_pattern_to_regex - weekday abbreviation pattern", function()
+        local pattern = "%Y-%m-%d-%a.txt"
+        local result = FileUtils.convert_pattern_to_regex(pattern)
+
+        assert.assert_equal(result.year_index, 1, "Year should be capture group 1")
+        assert.assert_equal(result.month_index, 2, "Month should be capture group 2")
+        assert.assert_equal(result.day_index, 3, "Day should be capture group 3")
+        -- Weekday abbreviation captured but no index assigned
+        assert.assert_type(result.regex, "string", "Regex should be string")
+        assert.assert_not_nil(string.find(result.regex, "%.txt"), "Regex should contain '.txt' suffix")
+    end)
+
+    assert.run_test("convert_pattern_to_regex - full weekday name pattern", function()
+        local pattern = "logs/%A-%Y-%m-%d.log"
+        local result = FileUtils.convert_pattern_to_regex(pattern)
+
+        assert.assert_equal(result.year_index, 2, "Year should be capture group 2")
+        assert.assert_equal(result.month_index, 3, "Month should be capture group 3")
+        assert.assert_equal(result.day_index, 4, "Day should be capture group 4")
+        assert.assert_not_nil(string.find(result.regex, "logs/"), "Regex should contain 'logs/' prefix")
+    end)
+
     -- Test: extract_date_from_filename - with mock buffer
     assert.run_test("extract_date_from_filename - valid date in filename", function()
         -- Set mock return value
@@ -121,6 +161,76 @@ function M.run()
         assert.assert_equal(date and date.year, 2025, "Year should be 2025")
         assert.assert_equal(date and date.month, 1, "January should be month 1")
         assert.assert_equal(date and date.day, 15, "Day should be 15")
+    end)
+
+    assert.run_test("extract_date_from_filename - month abbreviation pattern", function()
+        mock_buf_get_name_return = "/home/user/notes/Feb-25-2026.md"
+        _config.daily_path_pattern = "notes/%b-%d-%Y.md"
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_not_nil(date, "Should extract date from month abbreviation pattern")
+        assert.assert_equal(date and date.year, 2026, "Year should be 2026")
+        assert.assert_equal(date and date.month, 2, "February should be month 2")
+        assert.assert_equal(date and date.day, 25, "Day should be 25")
+    end)
+
+    assert.run_test("extract_date_from_filename - lowercase month abbreviation", function()
+        mock_buf_get_name_return = "/home/user/notes/feb-25-2026.md"
+        _config.daily_path_pattern = "notes/%b-%d-%Y.md"
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_not_nil(date, "Should extract date from lowercase month abbreviation")
+        assert.assert_equal(date and date.year, 2026, "Year should be 2026")
+        assert.assert_equal(date and date.month, 2, "February should be month 2")
+        assert.assert_equal(date and date.day, 25, "Day should be 25")
+    end)
+
+    assert.run_test("extract_date_from_filename - weekday abbreviation pattern (valid)", function()
+        mock_buf_get_name_return = "/home/user/notes/Wed-25-02-2026.md"
+        _config.daily_path_pattern = "notes/%a-%d-%m-%Y.md"
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_not_nil(date, "Should extract date with valid weekday abbreviation")
+        assert.assert_equal(date and date.year, 2026, "Year should be 2026")
+        assert.assert_equal(date and date.month, 2, "Month should be 2")
+        assert.assert_equal(date and date.day, 25, "Day should be 25")
+    end)
+
+    assert.run_test("extract_date_from_filename - weekday full name pattern (valid)", function()
+        mock_buf_get_name_return = "/home/user/notes/Wednesday-25-02-2026.md"
+        _config.daily_path_pattern = "notes/%A-%d-%m-%Y.md"
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_not_nil(date, "Should extract date with valid full weekday name")
+        assert.assert_equal(date and date.year, 2026, "Year should be 2026")
+        assert.assert_equal(date and date.month, 2, "Month should be 2")
+        assert.assert_equal(date and date.day, 25, "Day should be 25")
+    end)
+
+    assert.run_test("extract_date_from_filename - weekday mismatch", function()
+        mock_buf_get_name_return = "/home/user/notes/Monday-25-02-2026.md"
+        _config.daily_path_pattern = "notes/%A-%d-%m-%Y.md"
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_nil(date, "Should return nil when weekday doesn't match date")
+    end)
+
+    assert.run_test("extract_date_from_filename - lowercase weekday with use_lowercase_daily_path", function()
+        mock_buf_get_name_return = "/home/user/notes/wednesday-25-02-2026.md"
+        _config.daily_path_pattern = "notes/%A-%d-%m-%Y.md"
+        _config.use_lowercase_daily_path = true
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_not_nil(date, "Should extract date with lowercase weekday when option enabled")
+        assert.assert_equal(date and date.year, 2026, "Year should be 2026")
+        assert.assert_equal(date and date.month, 2, "Month should be 2")
+        assert.assert_equal(date and date.day, 25, "Day should be 25")
     end)
 
     assert.run_test("extract_date_from_filename - no match", function()
@@ -152,6 +262,41 @@ function M.run()
 
         assert.assert_equal(status, "missing", "Missing file should return 'missing'")
         assert.assert_equal(mock_readfile_calls, 0, "readfile should not be called when file doesn't exist")
+    end)
+
+    assert.run_test("get_day_status - lowercase path generation (enabled)", function()
+        mock_filereadable_return = {
+            ["jan-15-2025.md"] = 1,
+        }
+        mock_readfile_calls = 0
+        mock_readfile_return = { "# Daily log", "- [x] Done task" }
+        _config.daily_path_pattern = "%b-%d-%Y.md"
+        _config.highlight_unfinished_tasks = true
+        _config.use_lowercase_daily_path = true
+
+        local date = { year = 2025, month = 1, day = 15 }
+        local status = FileUtils.get_day_status(date)
+
+        assert.assert_equal(status, "normal", "Should find lowercase file and no unfinished tasks")
+        assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once for lowercase file")
+    end)
+
+    assert.run_test("get_day_status - lowercase path generation (disabled)", function()
+        mock_filereadable_return = {
+            ["Jan-15-2025.md"] = 0,
+            ["jan-15-2025.md"] = 1,
+        }
+        mock_readfile_calls = 0
+        mock_readfile_return = { "# Daily log", "- [x] Done task" }
+        _config.daily_path_pattern = "%b-%d-%Y.md"
+        _config.highlight_unfinished_tasks = true
+        _config.use_lowercase_daily_path = false
+
+        local date = { year = 2025, month = 1, day = 15 }
+        local status = FileUtils.get_day_status(date)
+
+        assert.assert_equal(status, "missing", "Should not fallback; title-case file missing")
+        assert.assert_equal(mock_readfile_calls, 0, "readfile should not be called")
     end)
 
     assert.run_test("get_day_status - file with no unfinished tasks", function()

@@ -16,6 +16,7 @@ function M.run()
     local original_daily_path_pattern = _config.daily_path_pattern
     local original_highlight_unfinished_tasks = _config.highlight_unfinished_tasks
     local original_completed_task_markers = _config.completed_task_markers
+    local original_use_lowercase_daily_path = _config.use_lowercase_daily_path
 
     -- Helper to capture warnings from vim.notify
     local function capture_warnings()
@@ -240,26 +241,7 @@ function M.run()
         end
     end)
 
-    assert.run_test("completed_task_markers - handles non-table value (string)", function()
-        _config.daily_path_pattern = "%Y-%m-%d.md"
-        _config.highlight_unfinished_tasks = false
-        _config.completed_task_markers = { "x", "-" }
 
-        -- When completed_task_markers is a string (not a table), it should be assigned directly
-        -- This tests backward compatibility with old config format
-        plugin.setup({ completed_task_markers = "✓" })
-        assert.assert_equal(_config.completed_task_markers, "✓", "Should assign string directly")
-    end)
-
-    assert.run_test("completed_task_markers - handles non-table value (number)", function()
-        _config.daily_path_pattern = "%Y-%m-%d.md"
-        _config.highlight_unfinished_tasks = false
-        _config.completed_task_markers = { "x", "-" }
-
-        -- When completed_task_markers is a number (not a table), it should be assigned directly
-        plugin.setup({ completed_task_markers = 42 })
-        assert.assert_equal(_config.completed_task_markers, 42, "Should assign number directly")
-    end)
 
     assert.run_test("completed_task_markers - warning messages contain plugin prefix", function()
         _config.daily_path_pattern = "%Y-%m-%d.md"
@@ -278,10 +260,36 @@ function M.run()
         end
     end)
 
+    assert.run_test("use_lowercase_daily_path - default value", function()
+        -- Reset to defaults
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.highlight_unfinished_tasks = false
+        _config.completed_task_markers = { "x", "-" }
+        _config.use_lowercase_daily_path = false
+
+        assert.assert_equal(_config.use_lowercase_daily_path, false, "Default should be false")
+    end)
+
+
+
+    assert.run_test("use_lowercase_daily_path - accepts boolean values", function()
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.highlight_unfinished_tasks = false
+        _config.completed_task_markers = { "x", "-" }
+        _config.use_lowercase_daily_path = false
+
+        plugin.setup({ use_lowercase_daily_path = true })
+        assert.assert_equal(_config.use_lowercase_daily_path, true, "Should accept true")
+
+        plugin.setup({ use_lowercase_daily_path = false })
+        assert.assert_equal(_config.use_lowercase_daily_path, false, "Should accept false")
+    end)
+
     -- Restore original config
     _config.daily_path_pattern = original_daily_path_pattern
     _config.highlight_unfinished_tasks = original_highlight_unfinished_tasks
     _config.completed_task_markers = original_completed_task_markers
+    _config.use_lowercase_daily_path = original_use_lowercase_daily_path
 
     print("  All Configuration tests completed")
 end

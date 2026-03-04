@@ -8,8 +8,9 @@ CONTENTS                                                           *simple-calen
     3. Usage ....................... |simple-calendar-usage|
     4. Configuration ............... |simple-calendar-configuration|
     5. Keybindings ................. |simple-calendar-keybindings|
-    6. Functions ................... |simple-calendar-functions|
-    7. License ..................... |simple-calendar-license|
+    6. Journaling .................. |simple-calendar-journaling|
+    7. Functions ................... |simple-calendar-functions|
+    8. License ..................... |simple-calendar-license|
 
 ==============================================================================
 INTRODUCTION                                                   *simple-calendar-introduction*
@@ -19,9 +20,8 @@ simple-calendar.nvim is a simple calendar plugin for Neovim.
  Features:
 - Intuitive navigation using h/j/k/l keys
 - Additional Vim-style navigation keys (b/B/w/W/e/E/ge/gE) and arrow keys
-- Month switching using p/n keys
+- Month switching using p/n keys (and `<C-d>`/`<C-u>` alternatives)
 - Date selection that opens files based on configurable pattern
-- Unified cursor and highlight (cursor always on right digit of selected day)
 
 ==============================================================================
 INSTALLATION                                                   *simple-calendar-installation*
@@ -38,6 +38,14 @@ To open the calendar:
 >
     :lua require('simple-calendar').show_calendar()
 <
+When opened, the calendar automatically shows the date from the current filename if it matches the `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
+
+Open at a specific date:
+>
+    -- Open calendar at January 15, 2025
+    require('simple-calendar').show_calendar({ year = 2025, month = 1, day = 15 })
+<
+The `date` parameter is optional. When provided, it must be a table with `year`, `month`, and `day` fields.
 
 Create a keymap for quick access:
 >
@@ -50,9 +58,11 @@ CONFIGURATION                                               *simple-calendar-con
 No configuration required. Optional setup:
 >
     require("simple-calendar").setup({
-        daily_path_pattern = vim.fn.expand("~") .. "/journal/%Y-%m-%d.md",
-        highlight_unfinished_tasks = true,
-        completed_task_markers = {"x", "-"}
+        daily_path_pattern = "",
+        use_lowercase_daily_path = false,
+        highlight_unfinished_tasks = false,
+        completed_task_markers = { "x", "-" },
+        skip_weekends = false,
     })
 <
 
@@ -60,8 +70,15 @@ Options:
 
 daily_path_pattern~                     (string)
     Date format pattern for file creation when selecting a date. Uses Lua's
-    os.date() format.
+    os.date() format. Supported tokens: %Y, %m, %d, %B, %b, %A, %a. Weekday tokens (%a, %A) are validated against the extracted date; mismatches cause the file not to be recognized. Must be set to a non‑empty string for the journal function and date selection to work.
+    See use_lowercase_daily_path for case handling.
     Default: ""
+
+use_lowercase_daily_path~               (boolean)
+    When true, daily note paths are generated in lowercase (e.g.,
+    feb-25-2026-wed.md). When false (default), paths use the case
+    returned by os.date() (e.g., Feb-25-2026-Wed.md). File matching is exact
+    Default: false
 
 highlight_unfinished_tasks~             (boolean)
     When enabled, highlights days based on their task status:
@@ -81,6 +98,12 @@ completed_task_markers~                 (table)
     For example, {"x", "-"} matches "- [x]" and "- [-]". Matching is exact - spaces in brackets are not trimmed.
     Supports `-`, `*`, `+` markdown list markers.
     Default: {"x", "-"}
+
+skip_weekends~                          (boolean)
+    Skip weekends when using journal function. When enabled, weekends
+    (Saturday and Sunday) are skipped. For example, on Friday,
+    `calendar.journal("tomorrow")` opens Monday's file.
+    Default: false
 
 ==============================================================================
 KEYBINDINGS                                                 *simple-calendar-keybindings*
@@ -108,21 +131,86 @@ KEYBINDINGS                                                 *simple-calendar-key
  q           Close calendar window
 
 ==============================================================================
+JOURNALING                                                  *simple-calendar-journaling*
+
+When `daily_path_pattern` is configured (non‑empty), you can use the `journal()` function to open journal files for today, yesterday, tomorrow, or a specific date.
+The `daily_path_pattern` configuration must be set to a non‑empty string,
+otherwise `journal()` will display an error.
+The function respects the `skip_weekends` configuration option (see
+|simple-calendar-configuration|).
+If the target file doesn't exist, you'll be prompted to create it.
+
+Function signature: `calendar.journal([string_or_date])` where `string_or_date` can be:
+- `nil` or omitted → opens today's file (same as `"today"`)
+- `"today"` → opens today's file
+- `"yesterday"` → opens yesterday's file
+- `"tomorrow"` → opens tomorrow's file
+- A date table `{ year = Y, month = M, day = D }` → opens the file for that specific date
+
+Only the strings `"yesterday"`, `"today"`, and `"tomorrow"` are supported; other strings will display an error. Date tables must have numeric `year`, `month`, and `day` fields within valid ranges.
+
+Usage:
+>
+    local calendar = require("simple-calendar")
+    calendar.journal()                     -- Open today's journal file
+    calendar.journal("today")              -- Same as above
+    calendar.journal("tomorrow")           -- Open tomorrow's journal file
+    calendar.journal("yesterday")          -- Open yesterday's journal file
+    calendar.journal({ year = 2025, month = 1, day = 15 }) -- Open specific date
+<
+Keybinding examples:
+>
+    local calendar = require("simple-calendar")
+    vim.keymap.set("n", "<leader>d", calendar.journal,
+                   { noremap = true, desc = "open [d]aily note" })
+    vim.keymap.set("n", "<leader>t", function() calendar.journal("tomorrow") end,
+                   { noremap = true, desc = "open [t]omorrow's daily note" })
+    vim.keymap.set("n", "<leader>y", function() calendar.journal("yesterday") end,
+                   { noremap = true, desc = "open [y]esterday's daily note" })
+<
+Command line usage:
+>
+    nvim -c "lua require('simple-calendar').journal()"
+<
+==============================================================================
 FUNCTIONS                                                   *simple-calendar-functions*
 
-show_calendar()~
-    Opens the calendar window.
+show_calendar([date])~
+    Opens the calendar window. When called without arguments, the calendar
+    automatically shows the date from the current filename if it matches the
+    `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current
+    date.
 >
     require("simple-calendar").show_calendar()
+    require("simple-calendar").show_calendar({ year = 2025, month = 1, day = 15 })
+<
+    The optional `date` parameter must be a table with `year`, `month`, and `day`
+    fields.
+
+journal([string_or_date])~
+    Opens the journal file for today, yesterday, tomorrow, or a specific date.
+    The `string_or_date` parameter is optional (defaults to `"today"`). Valid values:
+    `nil`, `"today"`, `"yesterday"`, `"tomorrow"`, or a date table
+    `{ year = Y, month = M, day = D }`. Only the listed strings are supported;
+    other strings will display an error.
+>
+    local calendar = require("simple-calendar")
+    calendar.journal()                     -- Open today's journal file
+    calendar.journal("today")              -- Same as above
+    calendar.journal("tomorrow")           -- Open tomorrow's journal file
+    calendar.journal("yesterday")          -- Open yesterday's journal file
+    calendar.journal({ year = 2025, month = 1, day = 15 }) -- Open specific date
 <
 
 setup(config)~
-    Configures the plugin with the provided options.
+    Configures the plugin with the provided options. All options are optional.
 >
     require("simple-calendar").setup({
-        daily_path_pattern = "%Y-%m-%d.md",
-        highlight_unfinished_tasks = false,
-        completed_task_markers = nil
+        daily_path_pattern = "",                       -- default: empty string
+        use_lowercase_daily_path = false,              -- default: false
+        highlight_unfinished_tasks = false,            -- default: false
+        completed_task_markers = { "x", "-" },         -- default: {"x", "-"}
+        skip_weekends = false,                         -- default: false
     })
 <
 

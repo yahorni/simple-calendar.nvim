@@ -5,23 +5,9 @@ local calendar_core = require("simple-calendar.calendar_core")
 local UI = {}
 local Navigation = {}
 
--- These will be set by init.lua
-local _current_win = nil
 local _programmatic_cursor_move_count = 0
-local with_programmatic_move = nil
 
--- Function to set shared state from init.lua
-local function set_shared_state(state)
-    for key, value in pairs(state) do
-        if key == "_current_win" then
-            _current_win = value
-        elseif key == "_programmatic_cursor_move_count" then
-            _programmatic_cursor_move_count = value
-        elseif key == "with_programmatic_move" then
-            with_programmatic_move = value
-        end
-    end
-end
+-- UI
 
 function UI.day_from_position(grid, line, col_pos)
     if line < 0 or line >= #grid then
@@ -52,15 +38,19 @@ end
 function UI.ensure_cursor_position(state)
     local pos = UI.position_from_day(state.grid, state.selected_day)
     if not pos then return end
+
+    local function with_programmatic_move(fn)
+        _programmatic_cursor_move_count = _programmatic_cursor_move_count + 1
+        local ok, err = pcall(fn)
+        _programmatic_cursor_move_count = _programmatic_cursor_move_count - 1
+        if not ok then error(err) end
+    end
+
     local cur = vim.api.nvim_win_get_cursor(state.win)
     if cur[1] ~= pos.line + 3 or cur[2] ~= pos.col then
-        if with_programmatic_move then
-            with_programmatic_move(function()
-                vim.api.nvim_win_set_cursor(state.win, { pos.line + 3, pos.col })
-            end)
-        else
+        with_programmatic_move(function()
             vim.api.nvim_win_set_cursor(state.win, { pos.line + 3, pos.col })
-        end
+        end)
     end
 end
 
@@ -101,9 +91,6 @@ end
 function UI.close_calendar_window(win_to_close)
     if win_to_close and vim.api.nvim_win_is_valid(win_to_close) then
         vim.api.nvim_win_close(win_to_close, true)
-    end
-    if _current_win == win_to_close then
-        _current_win = nil
     end
 end
 
@@ -160,7 +147,49 @@ function UI.reposition_window(win)
     vim.api.nvim_win_set_config(win, win_config)
 end
 
-local function navigate_date(state, direction)
+function UI.configure_events_handling(state)
+    local au_group = vim.api.nvim_create_augroup("SimpleCalendarCursor", { clear = true })
+
+    vim.api.nvim_create_autocmd("CursorMoved", {
+        group = au_group,
+        buffer = state.buf,
+        callback = function()
+            if _programmatic_cursor_move_count > 0 then
+                return
+            end
+
+            local cursor = vim.api.nvim_win_get_cursor(state.win)
+            local buffer_line = cursor[1] - 1
+            local grid_line = buffer_line - 2
+            local cursor_col = cursor[2]
+
+            if grid_line >= 0 and grid_line < #state.grid then
+                local current_day = UI.day_from_position(state.grid, grid_line, cursor_col)
+                if current_day and current_day ~= state.selected_day then
+                    state.selected_day = current_day
+                    UI.update_highlight(state)
+                else
+                    UI.ensure_cursor_position(state)
+                end
+            else
+                UI.ensure_cursor_position(state)
+            end
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("VimResized", {
+        group = au_group,
+        callback = function()
+            if state.win and vim.api.nvim_win_is_valid(state.win) then
+                UI.reposition_window(state.win)
+            end
+        end,
+    })
+end
+
+-- Navigation
+
+function Navigation.navigate_date(state, direction)
     local days_in_month = tonumber(os.date("%d", os.time({ year = state.now.year, month = state.now.month + 1, day = 0 }))) or
         31
     local new_day = state.selected_day
@@ -241,7 +270,7 @@ function Navigation.handle(state, direction)
         mode = "down"     -- preserve weekday in first week of next month
     end
 
-    local _, hit_boundary = navigate_date(state, direction)
+    local _, hit_boundary = Navigation.navigate_date(state, direction)
     if hit_boundary then
         local new_now = calendar_core.switch_month(state.now, state.selected_day, month_direction, mode)
         Navigation.update_display(state, new_now, new_now.day)
@@ -269,10 +298,10 @@ function Navigation.setup_keybindings(state)
     map("j", function() Navigation.handle(state, "down") end)
 
     -- Arrow keys
-    map("<left>", function() Navigation.handle(state, "left") end)
-    map("<right>", function() Navigation.handle(state, "right") end)
-    map("<up>", function() Navigation.handle(state, "up") end)
-    map("<down>", function() Navigation.handle(state, "down") end)
+    map("<Left>", function() Navigation.handle(state, "left") end)
+    map("<Right>", function() Navigation.handle(state, "right") end)
+    map("<Up>", function() Navigation.handle(state, "up") end)
+    map("<Down>", function() Navigation.handle(state, "down") end)
 
     -- Vim-style navigation keys
     map("b", function() Navigation.handle(state, "left") end)
@@ -287,29 +316,22 @@ function Navigation.setup_keybindings(state)
     -- Month switching
     map("p", function() Navigation.switch_month(state, "previous") end)
     map("n", function() Navigation.switch_month(state, "next") end)
-    map("<c-d>", function() Navigation.switch_month(state, "previous") end)
-    map("<c-u>", function() Navigation.switch_month(state, "next") end)
+    map("<C-D>", function() Navigation.switch_month(state, "previous") end)
+    map("<C-U>", function() Navigation.switch_month(state, "next") end)
 
     -- Select day
     local function handle_selection()
-        if #config._config.daily_path_pattern ~= 0 then
+        if #config.daily_path_pattern ~= 0 then
             UI.close_calendar_window(win)
             file_utils.handle_date_selection(state.selected_day, state.now)
         end
     end
     map("o", handle_selection)
-    map("<cr>", handle_selection)
+    map("<CR>", handle_selection)
 
     -- Close calendar
     map("q", function() UI.close_calendar_window(win) end)
-    map("<esc>", function() UI.close_calendar_window(win) end)
+    map("<Esc>", function() UI.close_calendar_window(win) end)
 end
 
-return {
-    UI = UI,
-    Navigation = Navigation,
-    _current_win = _current_win,
-    _programmatic_cursor_move_count = _programmatic_cursor_move_count,
-    with_programmatic_move = with_programmatic_move,
-    set_shared_state = set_shared_state,
-}
+return { UI = UI, Navigation = Navigation }

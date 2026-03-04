@@ -1,15 +1,7 @@
-local M = {}
-
--- Default config
-M._config = {
+return {
     daily_path_pattern = "",
+    use_lowercase_daily_path = false,
     highlight_unfinished_tasks = false,
     completed_task_markers = { "x", "-" },
+    skip_weekends = false,
 }
-
--- Global constants
-M.MONTH_NAMES = { "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December" }
-M.WEEKDAYS_HEADER = "Mo Tu We Th Fr Sa Su"
-
-return M

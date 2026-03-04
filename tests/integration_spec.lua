@@ -92,6 +92,89 @@ function M.run()
         assert.assert_equal(ok, true, "show_calendar with date should not error: " .. tostring(err))
     end)
 
+    -- Test: M.journal - basic invocation
+    assert.run_test("M.journal - can be called without errors", function()
+        -- Set a pattern to avoid empty pattern error
+        local config = plugin._test._config
+        local original_pattern = config.daily_path_pattern
+        config.daily_path_pattern = "%Y-%m-%d.md"
+
+        -- Mock vim.notify to suppress output during test
+        local original_notify = vim.notify
+        vim.notify = function(_msg, _level, _) end
+
+        -- Mock vim.cmd to avoid swap file errors
+        local original_cmd = vim.cmd
+        vim.cmd = function(_) end
+
+        -- Call journal with different offsets (should not crash)
+        local ok, err = pcall(function() plugin.journal() end)
+        assert.assert_equal(ok, true, "journal() should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal("today") end)
+        assert.assert_equal(ok, true, "journal(0) should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal("tomorrow") end)
+        assert.assert_equal(ok, true, "journal(1) should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal("yesterday") end)
+        assert.assert_equal(ok, true, "journal(-1) should not error: " .. tostring(err))
+
+        -- Invalid offset should also not crash (vim.notify used, no error)
+        ok, err = pcall(function() plugin.journal("hello") end)
+        assert.assert_equal(ok, true, "journal('hello') should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal(0) end)
+        assert.assert_equal(ok, true, "journal(0) should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal(1) end)
+        assert.assert_equal(ok, true, "journal(1) should not error: " .. tostring(err))
+
+
+        -- Restore
+        config.daily_path_pattern = original_pattern
+        vim.notify = original_notify
+        vim.cmd = original_cmd
+    end)
+
+    -- Test: M.journal - table arguments
+    assert.run_test("M.journal - table arguments", function()
+        local config = plugin._test._config
+        local original_pattern = config.daily_path_pattern
+        config.daily_path_pattern = "%Y-%m-%d.md"
+
+        local original_notify = vim.notify
+        vim.notify = function(_msg, _level, _) end
+
+        local original_cmd = vim.cmd
+        vim.cmd = function(_) end
+
+        -- Valid date table
+        local ok, err = pcall(function() plugin.journal({ year = 2025, month = 1, day = 15 }) end)
+        assert.assert_equal(ok, true, "journal with valid date table should not error: " .. tostring(err))
+
+        -- Invalid date tables
+        ok, err = pcall(function() plugin.journal({ year = 2025, month = 13, day = 1 }) end)
+        assert.assert_equal(ok, true, "journal with invalid month should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal({ year = 2025, month = 2, day = 30 }) end)
+        assert.assert_equal(ok, true, "journal with invalid day should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal({ year = "2025", month = 1, day = 1 }) end)
+        assert.assert_equal(ok, true, "journal with non-numeric year should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal({ month = 1, day = 1 }) end)
+        assert.assert_equal(ok, true, "journal missing year should not error: " .. tostring(err))
+
+        ok, err = pcall(function() plugin.journal({}) end)
+        assert.assert_equal(ok, true, "journal empty table should not error: " .. tostring(err))
+
+        -- Restore
+        config.daily_path_pattern = original_pattern
+        vim.notify = original_notify
+        vim.cmd = original_cmd
+    end)
+
     -- Restore original functions
     for name, fn in pairs(original_api) do
         vim.api[name] = fn
