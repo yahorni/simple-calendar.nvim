@@ -71,6 +71,7 @@ Options:
 daily_path_pattern~                     (string)
     Date format pattern for file creation when selecting a date. Uses Lua's
     os.date() format. Supported tokens: %Y, %m, %d, %B, %b, %A, %a. Weekday tokens (%a, %A) are validated against the extracted date; mismatches cause the file not to be recognized. Must be set to a non‑empty string for the journal function and date selection to work.
+    When set, days with existing note files appear in bold (using the `CalendarDayWithNote` highlight group), while missing files are dimmed (`Comment`).
     See use_lowercase_daily_path for case handling.
     Default: ""
 
@@ -81,14 +82,11 @@ use_lowercase_daily_path~               (boolean)
     Default: false
 
 highlight_unfinished_tasks~             (boolean)
-    When enabled, highlights days based on their task status:
-    - Days with unfinished markdown tasks ("- [ ]", "* [ ]", "+ [ ]") are
-      highlighted with the `Todo` highlight group
-    - Days where the file doesn't exist are highlighted with the `Comment`
-      highlight group
-    - Completed tasks (configurable markers, default: "- [x]", "- [-]")
-      are ignored
-    - Supports `-`, `*`, `+` markdown list markers
+    When enabled, additionally highlights days with unfinished markdown tasks
+    ("- [ ]", "* [ ]", "+ [ ]") using the `Todo` highlight group. Days with
+    only completed tasks (configurable markers, default: "- [x]", "- [-]")
+    are shown as normal days with a note (bold).
+    Supports `-`, `*`, `+` markdown list markers.
     Default: false
 
 completed_task_markers~                 (table)

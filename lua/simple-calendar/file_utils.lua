@@ -13,7 +13,7 @@ local function generate_daily_path(timestamp)
 end
 
 function FileUtils.get_day_status(date_table)
-    if #config.daily_path_pattern == 0 or not config.highlight_unfinished_tasks then
+    if #config.daily_path_pattern == 0 then
         return "normal"
     end
 
@@ -24,27 +24,30 @@ function FileUtils.get_day_status(date_table)
         return "missing"
     end
 
-    local lines = vim.fn.readfile(path)
-    for _, line in ipairs(lines) do
-        -- Match markdown task list items that are not completed
-        -- Supports -, *, + bullets, single character inside brackets, excludes markdown links
-        local content, pos = line:match("^%s*[-+*] %[(.)%]()")
-        if content and (pos > #line or line:sub(pos, pos) ~= "(") then
-            -- Check if content matches any completed task marker
-            local is_completed = false
-            for _, marker in ipairs(config.completed_task_markers) do
-                if content == marker then
-                    is_completed = true
-                    break
+    -- File exists
+    if config.highlight_unfinished_tasks then
+        local lines = vim.fn.readfile(path)
+        for _, line in ipairs(lines) do
+            -- Match markdown task list items that are not completed
+            -- Supports -, *, + bullets, single character inside brackets, excludes markdown links
+            local content, pos = line:match("^%s*[-+*] %[(.)%]()")
+            if content and (pos > #line or line:sub(pos, pos) ~= "(") then
+                -- Check if content matches any completed task marker
+                local is_completed = false
+                for _, marker in ipairs(config.completed_task_markers) do
+                    if content == marker then
+                        is_completed = true
+                        break
+                    end
                 end
-            end
-            if not is_completed then
-                return "unfinished"
+                if not is_completed then
+                    return "unfinished"
+                end
             end
         end
     end
 
-    return "normal"
+    return "exists"
 end
 
 function FileUtils.convert_pattern_to_regex(pattern)

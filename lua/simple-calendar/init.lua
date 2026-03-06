@@ -9,8 +9,6 @@ local M = {}
 local _current_win = nil
 
 local _global_au_group = vim.api.nvim_create_augroup("SimpleCalendarGlobal", {})
-
--- Set up autocmd to clean up when calendar window closes
 vim.api.nvim_create_autocmd("WinClosed", {
     group = _global_au_group,
     callback = function(event)

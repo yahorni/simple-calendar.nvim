@@ -277,7 +277,7 @@ function M.run()
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)
 
-        assert.assert_equal(status, "normal", "Should find lowercase file and no unfinished tasks")
+        assert.assert_equal(status, "exists", "Should find lowercase file and no unfinished tasks")
         assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once for lowercase file")
     end)
 
@@ -309,7 +309,7 @@ function M.run()
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)
 
-        assert.assert_equal(status, "normal", "File with no unfinished tasks should return 'normal'")
+        assert.assert_equal(status, "exists", "File with no unfinished tasks should return 'exists'")
         assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once")
     end)
 
@@ -342,8 +342,8 @@ function M.run()
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)
 
-        -- Should return "normal" because we have only completed tasks and a link
-        assert.assert_equal(status, "normal", "File with only completed tasks and a link should return 'normal'")
+        -- Should return "exists" because we have only completed tasks and a link
+        assert.assert_equal(status, "exists", "File with only completed tasks and a link should return 'exists'")
         assert.assert_equal(mock_readfile_calls, 1, "readfile should be called once")
     end)
 
@@ -372,12 +372,14 @@ function M.run()
     end)
 
     assert.run_test("get_day_status - highlight_unfinished_tasks disabled", function()
+        mock_filereadable_return = 1
+        _config.daily_path_pattern = "%Y-%m-%d.md"
         _config.highlight_unfinished_tasks = false
 
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)
 
-        assert.assert_equal(status, "normal", "When highlight_unfinished_tasks is false, always return 'normal'")
+        assert.assert_equal(status, "exists", "When highlight_unfinished_tasks is false but file exists, return 'exists'")
     end)
 
     assert.run_test("get_day_status - empty path pattern", function()

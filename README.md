@@ -107,11 +107,16 @@ Weekday tokens (`%a`, `%A`) are validated against the extracted date; files with
 
 Set `use_lowercase_daily_path = true` to generate daily note paths in lowercase (e.g., `feb-25-2026-wed.md`). When `false` (default), paths use the case returned by `os.date()` (e.g., `Feb-25-2026-Wed.md`). File matching is exact.
 
-When `highlight_unfinished_tasks` is enabled:
-- Days with unfinished markdown tasks (like `- [ ]`, `* [ ]`, `+ [ ]`) are highlighted with `Todo` highlight group
-- Days where the file doesn't exist are highlighted with `Comment` highlight group
-- Days with only completed tasks (configurable markers, default: `- [x]`, `- [-]`) highlighted as usual
-- Supports `-`, `*`, `+` markdown list markers
+When `daily_path_pattern` is configured (non‑empty), days in the calendar are highlighted according to their status:
+
+- **Days with an existing note file** are shown in **bold** (using the `CalendarDayWithNote` highlight group; customize via `:hi CalendarDayWithNote …`).
+- **Days where the file doesn't exist** are dimmed (using the `Comment` highlight group).
+
+If `highlight_unfinished_tasks` is enabled:
+- **Days with unfinished markdown tasks** (like `- [ ]`, `* [ ]`, `+ [ ]`) are highlighted with the `Todo` highlight group.
+- **Days with only completed tasks** (configurable markers, default: `- [x]`, `- [-]`) are shown as normal days with a note (bold).
+
+Supports `-`, `*`, `+` markdown list markers.
 
 Use `completed_task_markers` to customize which bracket contents mark a task as completed.
 Markers must be single characters (e.g., `"x"`, `"-"`, `"✓"`, `"✅"`). Matching is exact - spaces in brackets are not trimmed.

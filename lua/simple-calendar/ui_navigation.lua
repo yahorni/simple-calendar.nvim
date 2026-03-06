@@ -7,6 +7,14 @@ local Navigation = {}
 
 local _programmatic_cursor_move_count = 0
 
+local _highlight_group = vim.api.nvim_create_augroup("SimpleCalendarHighlights", {})
+vim.api.nvim_create_autocmd("ColorScheme", {
+    group = _highlight_group,
+    callback = function()
+        vim.api.nvim_set_hl(0, "CalendarDayWithNote", { bold = true })
+    end,
+})
+
 -- UI
 
 function UI.day_from_position(grid, line, col_pos)
@@ -73,6 +81,9 @@ function UI.update_highlight(state)
                     vim.api.nvim_buf_add_highlight(state.buf, -1, "Todo", line_num - 1, col_start, col_start + 2)
                 elseif status == "missing" then
                     vim.api.nvim_buf_add_highlight(state.buf, -1, "Comment", line_num - 1, col_start, col_start + 2)
+                elseif status == "exists" then
+                    vim.api.nvim_buf_add_highlight(state.buf, -1, "CalendarDayWithNote", line_num - 1, col_start,
+                        col_start + 2)
                 end
 
                 -- Highlight selected day (overrides task highlight)
