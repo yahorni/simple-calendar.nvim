@@ -24,7 +24,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 **Open the calendar:**
 
 ```lua
-:lua require('simple-calendar').show_calendar()
+:lua require('simple-calendar').open()
 ```
 
 When opened, the calendar will automatically show the date from the current filename if it matches the `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
@@ -33,7 +33,7 @@ When opened, the calendar will automatically show the date from the current file
 
 ```lua
 -- Open calendar at January 15, 2025
-require('simple-calendar').show_calendar({ year = 2025, month = 1, day = 15 })
+require('simple-calendar').open({ year = 2025, month = 1, day = 15 })
 ```
 
 The `date` parameter is optional. When provided, it must be a table with `year`, `month`, and `day` fields.
@@ -41,7 +41,7 @@ The `date` parameter is optional. When provided, it must be a table with `year`,
 **Create a keymap:**
 
 ```lua
-vim.keymap.set('n', '<leader>c', require("simple-calendar").show_calendar, { desc = "Open [C]alendar" })
+vim.keymap.set('n', '<leader>c', require("simple-calendar").open, { desc = "Open [C]alendar" })
 ```
 
 ## Keybindings

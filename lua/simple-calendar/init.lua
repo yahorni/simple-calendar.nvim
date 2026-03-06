@@ -64,7 +64,7 @@ function M.setup(user_config)
     end
 end
 
-function M.show_calendar(date)
+function M.open(date)
     -- Clean up any invalid window reference
     if _current_win and not vim.api.nvim_win_is_valid(_current_win) then
         _current_win = nil

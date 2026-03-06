@@ -76,20 +76,20 @@ function M.run()
     vim.fn.readfile = function(_path) return {} end
     vim.fn.confirm = function(_msg, _choices, _default) return 1 end
 
-    -- Test: M.show_calendar - basic invocation
-    assert.run_test("M.show_calendar - can be called without errors", function()
-        local ok, err = pcall(function() plugin.show_calendar() end)
-        assert.assert_equal(ok, true, "show_calendar should not error: " .. tostring(err))
+    -- Test: M.open - basic invocation
+    assert.run_test("M.open - can be called without errors", function()
+        local ok, err = pcall(function() plugin.open() end)
+        assert.assert_equal(ok, true, "calendar.open should not error: " .. tostring(err))
 
         -- Verify some API calls were made
         assert.assert_not_nil(api_calls["nvim_create_buf"], "should create buffer")
         assert.assert_not_nil(api_calls["nvim_open_win"], "should open window")
     end)
 
-    assert.run_test("M.show_calendar - with date parameter", function()
+    assert.run_test("M.open - with date parameter", function()
         local date = { year = 2025, month = 1, day = 15 }
-        local ok, err = pcall(function() plugin.show_calendar(date) end)
-        assert.assert_equal(ok, true, "show_calendar with date should not error: " .. tostring(err))
+        local ok, err = pcall(function() plugin.open(date) end)
+        assert.assert_equal(ok, true, "calendar.open with date should not error: " .. tostring(err))
     end)
 
     -- Test: M.journal - basic invocation

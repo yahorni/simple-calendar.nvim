@@ -36,20 +36,20 @@ USAGE                                                             *simple-calend
 
 To open the calendar:
 >
-    :lua require('simple-calendar').show_calendar()
+    :lua require('simple-calendar').open()
 <
 When opened, the calendar automatically shows the date from the current filename if it matches the `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
 
 Open at a specific date:
 >
     -- Open calendar at January 15, 2025
-    require('simple-calendar').show_calendar({ year = 2025, month = 1, day = 15 })
+    require('simple-calendar').open({ year = 2025, month = 1, day = 15 })
 <
 The `date` parameter is optional. When provided, it must be a table with `year`, `month`, and `day` fields.
 
 Create a keymap for quick access:
 >
-    vim.keymap.set('n', '<leader>c', require("simple-calendar").show_calendar, { desc = "Open [C]alendar" })
+    vim.keymap.set('n', '<leader>c', require("simple-calendar").open, { desc = "Open [C]alendar" })
 <
 
 ==============================================================================
@@ -173,14 +173,14 @@ Command line usage:
 ==============================================================================
 FUNCTIONS                                                   *simple-calendar-functions*
 
-show_calendar([date])~
+open([date])~
     Opens the calendar window. When called without arguments, the calendar
     automatically shows the date from the current filename if it matches the
     `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current
     date.
 >
-    require("simple-calendar").show_calendar()
-    require("simple-calendar").show_calendar({ year = 2025, month = 1, day = 15 })
+    require("simple-calendar").open()
+    require("simple-calendar").open({ year = 2025, month = 1, day = 15 })
 <
     The optional `date` parameter must be a table with `year`, `month`, and `day`
     fields.
