@@ -1,22 +1,7 @@
-local config = require("simple-calendar.config")
-local calendar_core = require("simple-calendar.calendar_core")
-local file_utils = require("simple-calendar.file_utils")
-local ui_navigation = require("simple-calendar.ui_navigation")
-local journal = require("simple-calendar.journal")
-
 local M = {}
-
 local _current_win = nil
+local _global_au_group = nil
 
-local _global_au_group = vim.api.nvim_create_augroup("SimpleCalendarGlobal", {})
-vim.api.nvim_create_autocmd("WinClosed", {
-    group = _global_au_group,
-    callback = function(event)
-        if _current_win == event.win then
-            _current_win = nil
-        end
-    end,
-})
 
 function M.setup(user_config)
     if user_config == nil then
@@ -44,6 +29,7 @@ function M.setup(user_config)
         return valid_markers
     end
 
+    local config = require("simple-calendar.config")
     for key, value in pairs(user_config) do
         local default = config[key]
         if default ~= nil then
@@ -65,6 +51,9 @@ function M.setup(user_config)
 end
 
 function M.open(date)
+    local file_utils = require("simple-calendar.file_utils")
+    local ui_navigation = require("simple-calendar.ui_navigation")
+
     -- Clean up any invalid window reference
     if _current_win and not vim.api.nvim_win_is_valid(_current_win) then
         _current_win = nil
@@ -89,6 +78,7 @@ function M.open(date)
         end
     end
 
+    local calendar_core = require("simple-calendar.calendar_core")
     state.grid, state.calendar_lines = calendar_core.refresh_calendar(state.now)
 
     local max_width = 0
@@ -127,12 +117,27 @@ function M.open(date)
 
     _current_win = state.win
 
+    if _global_au_group == nil then
+        _global_au_group = vim.api.nvim_create_augroup("SimpleCalendarGlobal", {})
+        vim.api.nvim_create_autocmd("WinClosed", {
+            group = _global_au_group,
+            callback = function(event)
+                if _current_win == event.win then
+                    _current_win = nil
+                end
+            end,
+        })
+    end
+
+    ui_navigation.UI.configure_highlight_group()
     ui_navigation.UI.configure_events_handling(state)
     ui_navigation.UI.update_highlight(state)
     ui_navigation.Navigation.setup_keybindings(state)
 end
 
 function M.journal(arg)
+    local journal = require("simple-calendar.journal")
+
     local string_or_date
     if type(arg) == "table" and arg["args"] ~= nil then
         string_or_date = arg.args
@@ -145,11 +150,11 @@ end
 -- Export internal modules for testing when in test mode
 if vim.g and vim.g.SIMPLE_CALENDAR_TEST then
     M._test = {
-        CalendarCore = calendar_core,
-        FileUtils = file_utils,
-        UI = ui_navigation.UI,
-        Navigation = ui_navigation.Navigation,
-        _config = config,
+        CalendarCore = require("simple-calendar.calendar_core"),
+        FileUtils = require("simple-calendar.file_utils"),
+        UI = require("simple-calendar.ui_navigation").UI,
+        Navigation = require("simple-calendar.ui_navigation").Navigation,
+        _config = require("simple-calendar.config"),
     }
 end
 

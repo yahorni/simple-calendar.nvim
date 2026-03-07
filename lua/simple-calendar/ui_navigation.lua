@@ -1,4 +1,3 @@
-local config = require("simple-calendar.config")
 local file_utils = require("simple-calendar.file_utils")
 local calendar_core = require("simple-calendar.calendar_core")
 
@@ -6,16 +5,62 @@ local UI = {}
 local Navigation = {}
 
 local _programmatic_cursor_move_count = 0
-
-local _highlight_group = vim.api.nvim_create_augroup("SimpleCalendarHighlights", {})
-vim.api.nvim_create_autocmd("ColorScheme", {
-    group = _highlight_group,
-    callback = function()
-        vim.api.nvim_set_hl(0, "CalendarDayWithNote", { bold = true })
-    end,
-})
+local _highlight_group = nil
 
 -- UI
+
+function UI.configure_highlight_group()
+    if _highlight_group == nil then
+        _highlight_group = vim.api.nvim_create_augroup("SimpleCalendarHighlights", {})
+        vim.api.nvim_set_hl(0, "CalendarDayWithNote", { bold = true })
+        vim.api.nvim_create_autocmd("ColorScheme", {
+            group = _highlight_group,
+            callback = function()
+                vim.api.nvim_set_hl(0, "CalendarDayWithNote", { bold = true })
+            end,
+        })
+    end
+end
+
+function UI.configure_events_handling(state)
+    local au_group = vim.api.nvim_create_augroup("SimpleCalendarCursor", { clear = true })
+
+    vim.api.nvim_create_autocmd("CursorMoved", {
+        group = au_group,
+        buffer = state.buf,
+        callback = function()
+            if _programmatic_cursor_move_count > 0 then
+                return
+            end
+
+            local cursor = vim.api.nvim_win_get_cursor(state.win)
+            local buffer_line = cursor[1] - 1
+            local grid_line = buffer_line - 2
+            local cursor_col = cursor[2]
+
+            if grid_line >= 0 and grid_line < #state.grid then
+                local current_day = UI.day_from_position(state.grid, grid_line, cursor_col)
+                if current_day and current_day ~= state.selected_day then
+                    state.selected_day = current_day
+                    UI.update_highlight(state)
+                else
+                    UI.ensure_cursor_position(state)
+                end
+            else
+                UI.ensure_cursor_position(state)
+            end
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("VimResized", {
+        group = au_group,
+        callback = function()
+            if state.win and vim.api.nvim_win_is_valid(state.win) then
+                UI.reposition_window(state.win)
+            end
+        end,
+    })
+end
 
 function UI.day_from_position(grid, line, col_pos)
     if line < 0 or line >= #grid then
@@ -158,46 +203,6 @@ function UI.reposition_window(win)
     vim.api.nvim_win_set_config(win, win_config)
 end
 
-function UI.configure_events_handling(state)
-    local au_group = vim.api.nvim_create_augroup("SimpleCalendarCursor", { clear = true })
-
-    vim.api.nvim_create_autocmd("CursorMoved", {
-        group = au_group,
-        buffer = state.buf,
-        callback = function()
-            if _programmatic_cursor_move_count > 0 then
-                return
-            end
-
-            local cursor = vim.api.nvim_win_get_cursor(state.win)
-            local buffer_line = cursor[1] - 1
-            local grid_line = buffer_line - 2
-            local cursor_col = cursor[2]
-
-            if grid_line >= 0 and grid_line < #state.grid then
-                local current_day = UI.day_from_position(state.grid, grid_line, cursor_col)
-                if current_day and current_day ~= state.selected_day then
-                    state.selected_day = current_day
-                    UI.update_highlight(state)
-                else
-                    UI.ensure_cursor_position(state)
-                end
-            else
-                UI.ensure_cursor_position(state)
-            end
-        end,
-    })
-
-    vim.api.nvim_create_autocmd("VimResized", {
-        group = au_group,
-        callback = function()
-            if state.win and vim.api.nvim_win_is_valid(state.win) then
-                UI.reposition_window(state.win)
-            end
-        end,
-    })
-end
-
 -- Navigation
 
 function Navigation.navigate_date(state, direction)
@@ -332,6 +337,7 @@ function Navigation.setup_keybindings(state)
 
     -- Select day
     local function handle_selection()
+        local config = require("simple-calendar.config")
         if #config.daily_path_pattern ~= 0 then
             UI.close_calendar_window(win)
             file_utils.handle_date_selection(state.selected_day, state.now)

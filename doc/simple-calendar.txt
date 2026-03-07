@@ -166,6 +166,26 @@ Keybinding examples:
     vim.keymap.set("n", "<leader>y", function() calendar.journal("yesterday") end,
                    { noremap = true, desc = "open [y]esterday's daily note" })
 <
+User command:
+>
+    local calendar = require("simple-calendar")
+    vim.api.nvim_create_user_command("Journal", calendar.journal, { nargs = "?" })
+<
+This creates a `:Journal` command that accepts an optional argument (e.g., `:Journal tomorrow`).
+
+Command line usage with user command:
+>
+    nvim -c 'Journal'
+    nvim -c 'Journal tomorrow'
+<
+
+Mapping to the user command:
+>
+    vim.keymap.set("n", "<leader>j", ":Journal<CR>",
+                   { noremap = true, silent = true, desc = "Open journal" })
+    vim.keymap.set("n", "<leader>jt", ":Journal tomorrow<CR>",
+                   { noremap = true, silent = true, desc = "Open tomorrow's journal" })
+<
 Command line usage:
 >
     nvim -c "lua require('simple-calendar').journal()"

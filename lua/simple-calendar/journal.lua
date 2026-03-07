@@ -1,6 +1,3 @@
-local config = require("simple-calendar.config")
-local file_utils = require("simple-calendar.file_utils")
-
 local Journal = {}
 
 local SECONDS_IN_DAY = 86400
@@ -41,6 +38,7 @@ function Journal.get_date_with_weekend_skip(base_time, offset_days, skip_weekend
 end
 
 function Journal.open_day(string_or_date)
+    local config = require("simple-calendar.config")
     if #config.daily_path_pattern == 0 then
         vim.notify("simple-calendar: daily_path_pattern is not set", vim.log.levels.ERROR)
         return
@@ -95,6 +93,7 @@ function Journal.open_day(string_or_date)
         return
     end
 
+    local file_utils = require("simple-calendar.file_utils")
     file_utils.handle_date_selection(date_table.day, date_table)
 end
 

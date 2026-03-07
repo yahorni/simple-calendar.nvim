@@ -41,7 +41,17 @@ The `date` parameter is optional. When provided, it must be a table with `year`,
 **Create a keymap:**
 
 ```lua
-vim.keymap.set('n', '<leader>c', require("simple-calendar").open, { desc = "Open [C]alendar" })
+local calendar = require("simple-calendar")
+
+-- calendar
+vim.keymap.set('n', '<leader>c', calendar.open, { desc = "Open [C]alendar" })
+
+-- journaling
+vim.keymap.set("n", "<leader>d", calendar.journal, { noremap = true, desc = "Open [d]aily note" })
+vim.keymap.set("n", "<leader>t", function() calendar.journal("tomorrow") end,
+               { noremap = true, desc = "Open [t]omorrow's daily note" })
+vim.keymap.set("n", "<leader>y", function() calendar.journal("yesterday") end,
+               { noremap = true, desc = "Open [y]esterday's daily note" })
 ```
 
 ## Keybindings
@@ -63,7 +73,7 @@ Key                  | Action
 
 ## Configuration
 
-No configuration required. Default values work out of the box. To customize, provide a configuration table:
+No configuration required. To customize, provide a configuration table:
 
 ```lua
 require("simple-calendar").setup({
@@ -71,7 +81,7 @@ require("simple-calendar").setup({
     -- Must be set for date selection and journaling
     daily_path_pattern = "",
 
-    -- Generate daily note paths in lowercase (default: false)
+    -- Generate/parse daily note paths in lowercase (default: false)
     use_lowercase_daily_path = false,
 
     -- Highlight days with unfinished tasks (default: false)
@@ -85,14 +95,35 @@ require("simple-calendar").setup({
 })
 ```
 
+### Using with lazy.nvim
+
+The plugin is lazy-loading friendly and works well with lazy.nvim's `keys` and `opts` fields:
+
+```lua
+{
+  "yahorni/simple-calendar.nvim",
+  opts = {
+    daily_path_pattern = "%b-%d-%Y-%a.md",
+    use_lowercase_daily_path = true,
+  },
+  keys = {
+    { "<leader>co",
+      function() require("simple-calendar").open() end,
+      { noremap = true, desc = "Open calendar" } },
+    { "<leader>cj",
+      function() require("simple-calendar").journal() end,
+      { noremap = true, desc = "Open today's journal" } },
+  },
+}
+```
+
 ### Path Pattern Support
 
 The `daily_path_pattern` supports directory structures with date components:
 
-- **Simple pattern**: `%Y-%m-%d.md` → `2024-10-15.md`
-- **Complex patterns**:
-  - `%Y-%m %B/%Y-%m-%d.md` → `2024-10 October/2024-10-15.md`
-  - `notes/%Y/%m-%B/%Y-%m-%d.md` → `notes/2024/10-October/2024-10-15.md`
+- `%Y-%m-%d.md` → `2024-10-15.md`
+- `%Y-%m %B/%Y-%m-%d.md` → `2024-10 October/2024-10-15.md`
+- `notes/%Y/%m-%B/%Y-%m-%d.md` → `notes/2024/10-October/2024-10-15.md`
 
 Supported strftime tokens:
 - `%Y` - 4-digit year (e.g., 2024)
@@ -102,8 +133,6 @@ Supported strftime tokens:
 - `%b` - Month abbreviation (e.g., Oct)
 - `%A` - Full weekday name (e.g., Tuesday)
 - `%a` - Weekday abbreviation (e.g., Tue)
-
-Weekday tokens (`%a`, `%A`) are validated against the extracted date; files with mismatching weekdays won't be recognized.
 
 Set `use_lowercase_daily_path = true` to generate daily note paths in lowercase (e.g., `feb-25-2026-wed.md`). When `false` (default), paths use the case returned by `os.date()` (e.g., `Feb-25-2026-Wed.md`). File matching is exact.
 
@@ -158,16 +187,23 @@ calendar.journal("yesterday")          -- Open yesterday's journal file
 calendar.journal({ year = 2025, month = 1, day = 15 }) -- Open specific date
 ```
 
-**Keybinding examples:**
+**Creating a user command:**
+
+You can create a user command for easier access to the journal function:
 
 ```lua
 local calendar = require("simple-calendar")
-vim.keymap.set("n", "<leader>d", calendar.journal,
-               { noremap = true, desc = "open [d]aily note" })
-vim.keymap.set("n", "<leader>t", function() calendar.journal("tomorrow") end,
-               { noremap = true, desc = "open [t]omorrow's daily note" })
-vim.keymap.set("n", "<leader>y", function() calendar.journal("yesterday") end,
-               { noremap = true, desc = "open [y]esterday's daily note" })
+vim.api.nvim_create_user_command("Journal", calendar.journal, { nargs = "?" })
+```
+
+This creates a `:Journal` command that accepts an optional argument (e.g., `:Journal tomorrow`). Usage examples:
+
+```bash
+# Open today's journal from command line
+nvim -c 'Journal'
+
+# Open tomorrow's journal
+nvim -c 'Journal tomorrow'
 ```
 
 **Command line usage:**

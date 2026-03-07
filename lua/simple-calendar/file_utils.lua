@@ -1,5 +1,4 @@
 local config = require("simple-calendar.config")
-local calendar_core = require("simple-calendar.calendar_core")
 
 local FileUtils = {}
 
@@ -148,6 +147,8 @@ function FileUtils.extract_date_from_filename()
     if pattern_info.day_index > 0 then
         day = captures[pattern_info.day_index]
     end
+
+    local calendar_core = require("simple-calendar.calendar_core")
 
     if month and not tonumber(month) then
         month = calendar_core.month_name_to_number(month)

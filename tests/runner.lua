@@ -51,6 +51,7 @@ run_test_suite("FileUtils", "tests.file_utils_spec")
 run_test_suite("Navigation", "tests.navigation_spec")
 run_test_suite("Configuration", "tests.config_spec")
 run_test_suite("Integration", "tests.integration_spec")
+run_test_suite("Lazy.nvim compatibility", "tests.lazy_spec")
 
 -- Summary
 print(string.rep("=", 50))
