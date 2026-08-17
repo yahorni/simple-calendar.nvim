@@ -66,7 +66,7 @@ function M.run()
         assert.assert_equal(result.year_index, 1, "Year should be capture group 1")
         assert.assert_equal(result.month_index, 2, "Month should be capture group 2")
         assert.assert_equal(result.day_index, 3, "Day should be capture group 3")
-        assert.assert_equal(result.regex, "(%d%d%d%d)%-(%d%d)%-(%d%d)%.md", "Regex should match YYYY-MM-DD.md")
+        assert.assert_equal(result.regex, "(%d%d%d%d)%-(%d%d)%-(%d%d)%.md$", "Regex should match YYYY-MM-DD.md")
     end)
 
     assert.run_test("convert_pattern_to_regex - month name pattern", function()
@@ -101,7 +101,7 @@ function M.run()
         assert.assert_equal(result.year_index, 0, "Year index should be 0")
         assert.assert_equal(result.month_index, 0, "Month index should be 0")
         assert.assert_equal(result.day_index, 0, "Day index should be 0")
-        assert.assert_equal(result.regex, "daily%-notes%.txt", "Regex should escape hyphens and dot")
+        assert.assert_equal(result.regex, "daily%-notes%.txt$", "Regex should escape hyphens and dot")
     end)
 
     assert.run_test("convert_pattern_to_regex - month abbreviation pattern", function()
@@ -111,7 +111,7 @@ function M.run()
         assert.assert_equal(result.year_index, 3, "Year should be capture group 3")
         assert.assert_equal(result.month_index, 1, "Month abbreviation should be capture group 1")
         assert.assert_equal(result.day_index, 2, "Day should be capture group 2")
-        assert.assert_equal(result.regex, "(%a+)%-(%d%d)%-(%d%d%d%d)%.md", "Regex should match month abbreviation")
+        assert.assert_equal(result.regex, "(%a+)%-(%d%d)%-(%d%d%d%d)%.md$", "Regex should match month abbreviation")
     end)
 
     assert.run_test("convert_pattern_to_regex - weekday abbreviation pattern", function()
@@ -240,6 +240,15 @@ function M.run()
         local date = FileUtils.extract_date_from_filename()
 
         assert.assert_nil(date, "Should return nil when pattern doesn't match")
+    end)
+
+    assert.run_test("extract_date_from_filename - date pattern in middle of path", function()
+        mock_buf_get_name_return = "/home/user/backup/2025-01-15.md.bak"
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+
+        local date = FileUtils.extract_date_from_filename()
+
+        assert.assert_nil(date, "Should return nil when date is not at end of path")
     end)
 
     assert.run_test("extract_date_from_filename - empty buffer name", function()

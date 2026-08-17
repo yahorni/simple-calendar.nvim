@@ -114,7 +114,7 @@ function FileUtils.convert_pattern_to_regex(pattern)
     end
 
     return {
-        regex = table.concat(regex_parts),
+        regex = table.concat(regex_parts) .. "$",
         year_index = year_index,
         month_index = month_index,
         day_index = day_index,
