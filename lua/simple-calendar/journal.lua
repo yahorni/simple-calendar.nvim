@@ -1,6 +1,18 @@
 local Journal = {}
 
-local SECONDS_IN_DAY = 86400
+-- DST-aware
+local function shift_days(base_time, offset_days)
+    local t = os.date("*t", base_time)
+    return os.time({
+        year = t.year,
+        month = t.month,
+        day = t.day + offset_days,
+        hour = t.hour,
+        min = t.min,
+        sec = t.sec,
+    })
+end
+
 local WDAY = {
     SUNDAY = 1,
     MONDAY = 2,
@@ -9,32 +21,27 @@ local WDAY = {
 }
 
 function Journal.get_date_with_weekend_skip(base_time, offset_days, skip_weekends)
-    if not skip_weekends or offset_days == 0 then
-        return base_time + offset_days * SECONDS_IN_DAY
-    end
-
-    local today = os.date("*t", base_time)
     local days_diff = offset_days
 
-    if offset_days == 1 then
-        if today.wday == WDAY.FRIDAY then
-            days_diff = 3
-        elseif today.wday == WDAY.SATURDAY then
-            days_diff = 2
-        else
-            days_diff = 1
-        end
-    elseif offset_days == -1 then
-        if today.wday == WDAY.MONDAY then
-            days_diff = -3
-        elseif today.wday == WDAY.SUNDAY then
-            days_diff = -2
-        else
-            days_diff = -1
+    if skip_weekends and offset_days ~= 0 then
+        local today = os.date("*t", base_time)
+
+        if offset_days == 1 then
+            if today.wday == WDAY.FRIDAY then
+                days_diff = 3
+            elseif today.wday == WDAY.SATURDAY then
+                days_diff = 2
+            end
+        elseif offset_days == -1 then
+            if today.wday == WDAY.MONDAY then
+                days_diff = -3
+            elseif today.wday == WDAY.SUNDAY then
+                days_diff = -2
+            end
         end
     end
 
-    return base_time + days_diff * SECONDS_IN_DAY
+    return shift_days(base_time, days_diff)
 end
 
 function Journal.open_day(string_or_date)
