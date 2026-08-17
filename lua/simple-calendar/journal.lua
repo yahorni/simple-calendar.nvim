@@ -57,25 +57,37 @@ function Journal.open_day(string_or_date)
     end
 
     if type(string_or_date) == "string" then
-        local offset
-        if string_or_date == "today" or #string_or_date == 0 then
-            offset = 0
-        elseif string_or_date == "yesterday" then
-            offset = -1
-        elseif string_or_date == "tomorrow" then
-            offset = 1
+        if string_or_date == "next" or string_or_date == "previous" then
+            local file_utils = require("simple-calendar.file_utils")
+            local current = file_utils.extract_date_from_filename()
+            if not current then
+                vim.notify("simple-calendar: Current file does not match daily_path_pattern", vim.log.levels.ERROR)
+                return
+            end
+            local target_time = Journal.get_date_with_weekend_skip(os.time(current),
+                string_or_date == "next" and 1 or -1, config.skip_weekends)
+            date_table = os.date("*t", target_time)
         else
-            vim.notify("simple-calendar: Invalid day. Use 'yesterday', 'today', 'tomorrow' or leave empty",
-                vim.log.levels.ERROR)
-            return
-        end
+            local offset
+            if string_or_date == "today" or #string_or_date == 0 then
+                offset = 0
+            elseif string_or_date == "yesterday" then
+                offset = -1
+            elseif string_or_date == "tomorrow" then
+                offset = 1
+            else
+                vim.notify("simple-calendar: Invalid day. Use 'yesterday', 'today', 'tomorrow', 'next', 'previous' or leave empty",
+                    vim.log.levels.ERROR)
+                return
+            end
 
-        local target_time = Journal.get_date_with_weekend_skip(os.time(), offset, config.skip_weekends)
-        if not target_time then
-            return
-        end
+            local target_time = Journal.get_date_with_weekend_skip(os.time(), offset, config.skip_weekends)
+            if not target_time then
+                return
+            end
 
-        date_table = os.date("*t", target_time)
+            date_table = os.date("*t", target_time)
+        end
     elseif type(string_or_date) == "table" then
         local calendar_core = require("simple-calendar.calendar_core")
         date_table = calendar_core.validate_date(string_or_date)
@@ -84,7 +96,7 @@ function Journal.open_day(string_or_date)
             return
         end
     else
-        vim.notify("simple-calendar: Invalid day. Use 'yesterday', 'today', 'tomorrow', a date table or leave empty",
+        vim.notify("simple-calendar: Invalid day. Use 'yesterday', 'today', 'tomorrow', 'next', 'previous', a date table or leave empty",
             vim.log.levels.ERROR)
         return
     end

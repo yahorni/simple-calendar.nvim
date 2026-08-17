@@ -52,6 +52,10 @@ vim.keymap.set("n", "<leader>t", function() calendar.journal("tomorrow") end,
                { noremap = true, desc = "Open [t]omorrow's daily note" })
 vim.keymap.set("n", "<leader>y", function() calendar.journal("yesterday") end,
                { noremap = true, desc = "Open [y]esterday's daily note" })
+vim.keymap.set("n", "<leader>n", function() calendar.journal("next") end,
+               { noremap = true, desc = "Open [n]ext daily note" })
+vim.keymap.set("n", "<leader>p", function() calendar.journal("previous") end,
+               { noremap = true, desc = "Open [p]revious daily note" })
 ```
 
 ## Keybindings
@@ -171,9 +175,11 @@ If the target file doesn't exist, you'll be prompted to create it.
 - `"today"` → opens today's file
 - `"yesterday"` → opens yesterday's file
 - `"tomorrow"` → opens tomorrow's file
+- `"next"` → opens the day after the currently open daily note
+- `"previous"` → opens the day before the currently open daily note
 - A date table `{ year = Y, month = M, day = D }` → opens the file for that specific date
 
-Only the strings `"yesterday"`, `"today"`, and `"tomorrow"` are supported; other strings will display an error. Date tables must have numeric `year`, `month`, and `day` fields within valid ranges.
+Only the strings `"yesterday"`, `"today"`, `"tomorrow"`, `"next"`, and `"previous"` are supported; other strings will display an error. Date tables must have numeric `year`, `month`, and `day` fields within valid ranges. `"next"`/`"previous"` are resolved relative to the currently open file and require it to match the `daily_path_pattern`, otherwise an error is shown. They respect the `skip_weekends` option (e.g., on Friday, `"next"` opens Monday's file when `skip_weekends` is enabled).
 
 **Examples:**
 
@@ -184,6 +190,8 @@ calendar.journal()                     -- Open today's journal file
 calendar.journal("today")              -- Same as above
 calendar.journal("tomorrow")           -- Open tomorrow's journal file
 calendar.journal("yesterday")          -- Open yesterday's journal file
+calendar.journal("next")               -- Open the day after the current note
+calendar.journal("previous")           -- Open the day before the current note
 calendar.journal({ year = 2025, month = 1, day = 15 }) -- Open specific date
 ```
 

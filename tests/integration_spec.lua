@@ -189,6 +189,51 @@ function M.run()
         vim.cmd = original_cmd
     end)
 
+    -- Test: M.journal - next/previous day relative to current note
+    assert.run_test("M.journal - next/previous day relative to current note", function()
+        local config = plugin._test._config
+        local original_pattern = config.daily_path_pattern
+        local original_skip_weekends = config.skip_weekends
+        config.daily_path_pattern = "%Y-%m-%d.md"
+        config.skip_weekends = false
+
+        local original_notify = vim.notify
+        vim.notify = function(_msg, _level, _) end
+
+        local original_cmd = vim.cmd
+        local last_cmd
+        vim.cmd = function(cmd) last_cmd = cmd end
+
+        local original_buf_get_name = vim.api.nvim_buf_get_name
+        vim.api.nvim_buf_get_name = function() return "/home/user/notes/2025-06-13.md" end
+
+        local ok, err = pcall(function() plugin.journal("next") end)
+        assert.assert_equal(ok, true, "journal('next') should not error: " .. tostring(err))
+        assert.assert_equal(last_cmd, "edit 2025-06-14.md", "next from Friday should open Saturday")
+
+        ok, err = pcall(function() plugin.journal("previous") end)
+        assert.assert_equal(ok, true, "journal('previous') should not error: " .. tostring(err))
+        assert.assert_equal(last_cmd, "edit 2025-06-12.md", "previous from Friday should open Thursday")
+
+        config.skip_weekends = true
+        ok, err = pcall(function() plugin.journal("next") end)
+        assert.assert_equal(ok, true, "journal('next') with skip_weekends should not error: " .. tostring(err))
+        assert.assert_equal(last_cmd, "edit 2025-06-16.md", "next from Friday should skip to Monday")
+
+        last_cmd = nil
+        vim.api.nvim_buf_get_name = function() return "/home/user/random.txt" end
+        ok, err = pcall(function() plugin.journal("next") end)
+        assert.assert_equal(ok, true, "journal('next') from non-note file should not error: " .. tostring(err))
+        assert.assert_equal(last_cmd, nil, "no edit should be attempted without a current note")
+
+        -- Restore
+        config.daily_path_pattern = original_pattern
+        config.skip_weekends = original_skip_weekends
+        vim.notify = original_notify
+        vim.cmd = original_cmd
+        vim.api.nvim_buf_get_name = original_buf_get_name
+    end)
+
     -- Restore original functions
     for name, fn in pairs(original_api) do
         vim.api[name] = fn
