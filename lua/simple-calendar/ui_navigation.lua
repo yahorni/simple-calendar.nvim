@@ -303,8 +303,8 @@ function Navigation.setup_keybindings(state)
     local win = state.win
 
     -- Helper function to create keymaps
-    local function map(key, callback, command)
-        vim.api.nvim_buf_set_keymap(buf, "n", key, command or "", { noremap = true, silent = true, callback = callback })
+    local function map(key, callback)
+        vim.api.nvim_buf_set_keymap(buf, "n", key, "", { noremap = true, silent = true, callback = callback })
     end
 
     -- Navigation keybindings

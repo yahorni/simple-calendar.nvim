@@ -29,6 +29,8 @@ function CalendarCore.get_calendar_grid(now)
     local grid = {}
     local day_count = 1
 
+    -- Always render a fixed 6-week grid. The trailing week(s) are left blank on
+    -- purpose to keep the calendar window the same height for every month
     for week = 1, 6 do
         local week_days = {}
         for weekday = 1, 7 do
