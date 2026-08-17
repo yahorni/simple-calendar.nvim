@@ -92,6 +92,20 @@ function M.run()
         assert.assert_equal(ok, true, "calendar.open with date should not error: " .. tostring(err))
     end)
 
+    assert.run_test("M.open - invalid date table does not crash", function()
+        local invalid = {
+            { year = 2025, month = 13, day = 1 },
+            { year = 2025, month = 0, day = 1 },
+            { year = 2025, month = "1", day = 1 },
+            { year = 2025 },
+            "2025-01-01",
+        }
+        for _, date in ipairs(invalid) do
+            local ok, err = pcall(plugin.open, date)
+            assert.assert_equal(ok, true, "open() should not crash on invalid date: " .. tostring(err))
+        end
+    end)
+
     -- Test: M.journal - basic invocation
     assert.run_test("M.journal - can be called without errors", function()
         -- Set a pattern to avoid empty pattern error

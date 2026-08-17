@@ -5,4 +5,3 @@
 - 3-month calendar window
 - Weekly note support
 - Cache day status (filereadable/readfile) per open instead of re-reading every file on each cursor move
-- Validate the `date` table passed to `open()` (invalid month currently crashes in header formatting)

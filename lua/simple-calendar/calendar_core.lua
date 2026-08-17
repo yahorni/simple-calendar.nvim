@@ -187,4 +187,26 @@ function CalendarCore.weekday_name_to_number(weekday_name)
     return nil
 end
 
+function CalendarCore.validate_date(date_table)
+    if type(date_table) ~= "table" then
+        return nil
+    end
+
+    local year = date_table.year
+    local month = date_table.month
+    local day = date_table.day
+
+    if type(year) ~= "number" or type(month) ~= "number" or type(day) ~= "number"
+        or month < 1 or month > 12 then
+        return nil
+    end
+
+    local days_in_month = tonumber(os.date("%d", os.time({ year = year, month = month + 1, day = 0 })))
+    if day < 1 or day > days_in_month then
+        return nil
+    end
+
+    return { year = year, month = month, day = day }
+end
+
 return CalendarCore

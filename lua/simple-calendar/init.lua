@@ -53,6 +53,7 @@ end
 function M.open(date)
     local file_utils = require("simple-calendar.file_utils")
     local ui_navigation = require("simple-calendar.ui_navigation")
+    local calendar_core = require("simple-calendar.calendar_core")
 
     -- Clean up any invalid window reference
     if _current_win and not vim.api.nvim_win_is_valid(_current_win) then
@@ -65,8 +66,13 @@ function M.open(date)
     local state = {}
 
     if date then
-        state.now = date
-        state.selected_day = date.day
+        local valid_date = calendar_core.validate_date(date)
+        if not valid_date then
+            vim.notify("simple-calendar: Invalid date table", vim.log.levels.ERROR)
+            valid_date = os.date("*t") -- fallback: open today's calendar
+        end
+        state.now = valid_date
+        state.selected_day = valid_date.day
     else
         local extracted_date = file_utils.extract_date_from_filename()
         if extracted_date then
@@ -78,7 +84,6 @@ function M.open(date)
         end
     end
 
-    local calendar_core = require("simple-calendar.calendar_core")
     state.grid, state.calendar_lines = calendar_core.refresh_calendar(state.now)
 
     local max_width = 0

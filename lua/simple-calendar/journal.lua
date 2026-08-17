@@ -77,23 +77,12 @@ function Journal.open_day(string_or_date)
 
         date_table = os.date("*t", target_time)
     elseif type(string_or_date) == "table" then
-        local year = string_or_date.year
-        local month = string_or_date.month
-        local day = string_or_date.day
-
-        if type(year) ~= "number" or type(month) ~= "number" or type(day) ~= "number"
-            or month < 1 or month > 12 then
+        local calendar_core = require("simple-calendar.calendar_core")
+        date_table = calendar_core.validate_date(string_or_date)
+        if not date_table then
             vim.notify("simple-calendar: Invalid date table", vim.log.levels.ERROR)
             return
         end
-
-        local days_in_month = tonumber(os.date("%d", os.time({ year = year, month = month + 1, day = 0 })))
-        if day < 1 or day > days_in_month then
-            vim.notify("simple-calendar: Invalid date table", vim.log.levels.ERROR)
-            return
-        end
-
-        date_table = { year = year, month = month, day = day }
     else
         vim.notify("simple-calendar: Invalid day. Use 'yesterday', 'today', 'tomorrow', a date table or leave empty",
             vim.log.levels.ERROR)
