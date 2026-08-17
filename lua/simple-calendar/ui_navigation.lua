@@ -67,7 +67,7 @@ function UI.day_from_position(grid, line, col_pos)
         return nil
     end
     local week = grid[line + 1]
-    local day_idx = math.floor(col_pos / 3) + 1
+    local day_idx = math.floor((col_pos + 1) / 3) + 1
     if day_idx < 1 or day_idx > #week then
         return nil
     end
