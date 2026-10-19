@@ -111,22 +111,23 @@ KEYBINDINGS                                                 *simple-calendar-key
 
  Key         Action~
  ---         ------
- h           Move left to previous day
- j           Move down to next week
- k           Move up to previous week
- l           Move right to next day
- <Left>      Move left to previous day
- <Right>     Move right to next day
- <Up>        Move up to previous week
- <Down>      Move down to next week
+ h            Move left to previous day
+ j            Move down to next week
+ k            Move up to previous week
+ l            Move right to next day
+ <Left>       Move left to previous day
+ <Right>      Move right to next day
+ <Up>         Move up to previous week
+ <Down>       Move down to next week
  b, B, ge, gE Move left to previous day
- w, W, e, E  Move right to next day
- p           Switch to previous month
- n           Switch to next month
- <C-d>       Switch to previous month
- <C-u>       Switch to next month
- <CR>        Select current date and open corresponding file
- q           Close calendar window
+ w, W, e, E   Move right to next day
+ p            Switch to previous month
+ n            Switch to next month
+ <C-d>        Switch to previous month
+ <C-u>        Switch to next month
+ o, <CR>      Select current date and open corresponding file
+ t            Jump to today's date
+ q, <Esc>     Close calendar window
 
 ==============================================================================
 JOURNALING                                                  *simple-calendar-journaling*

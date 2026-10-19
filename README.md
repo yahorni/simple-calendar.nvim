@@ -73,6 +73,7 @@ Key                  | Action
 `p`, `<C-D>`         | Switch to previous month
 `n`, `<C-U>`         | Switch to next month
 `o`, `<CR>`          | Select current date and open corresponding file
+`t`                  | Jump to today's date
 `q`, `<Esc>`         | Close calendar window
 
 ## Configuration

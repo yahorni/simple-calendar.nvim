@@ -111,6 +111,40 @@ function M.run()
         assert.assert_equal(state.now and state.now.year, 2025, "year should stay same")
     end)
 
+    -- Test: Navigation.focus_today - jumps to today (switching month if needed)
+    assert.run_test("Navigation.focus_today - jumps to today", function()
+        local state = create_mock_state()
+        state.now = { year = 2020, month = 6, day = 1 }
+        state.selected_day = 1
+
+        local today = os.date("*t")
+
+        Navigation.focus_today(state)
+
+        assert.assert_equal(state.now.year, today.year, "year should be today's year")
+        assert.assert_equal(state.now.month, today.month, "month should be today's month")
+        assert.assert_equal(state.now.day, today.day, "day should be today's day")
+        assert.assert_equal(state.selected_day, today.day, "selected day should be today's day")
+        assert.assert_equal(state.now.hour, nil, "state.now should be normalized to {year, month, day}")
+        assert.assert_equal(state.now.isdst, nil, "state.now should not carry isdst")
+    end)
+
+    -- Test: Navigation.focus_today - no-op when already on today
+    assert.run_test("Navigation.focus_today - no-op when already on today", function()
+        local state = create_mock_state()
+        local today = os.date("*t")
+        state.now = { year = today.year, month = today.month, day = today.day }
+        state.selected_day = today.day
+
+        mock_buf_set_lines_calls = 0
+        mock_buf_set_option_calls = 0
+
+        Navigation.focus_today(state)
+
+        assert.assert_equal(mock_buf_set_lines_calls, 0, "should not refresh the buffer when already on today")
+        assert.assert_equal(mock_buf_set_option_calls, 0, "should not toggle buffer options when already on today")
+    end)
+
     -- Test: Navigation.handle - boundary navigation (hits month switch)
     -- This is complex due to mocking; we'll focus on logic that doesn't hit boundary
     assert.run_test("Navigation.handle - left navigation within month", function()

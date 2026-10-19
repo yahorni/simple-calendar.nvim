@@ -298,6 +298,16 @@ function Navigation.switch_month(state, direction)
     Navigation.update_display(state, new_now, new_now.day)
 end
 
+-- Jump to today's date: switches month if today isn't in the visible month.
+-- No-op when the calendar already shows today with today selected.
+function Navigation.focus_today(state)
+    local today = calendar_core.validate_date(os.date("*t"))
+    if state.now.year == today.year and state.now.month == today.month and state.selected_day == today.day then
+        return
+    end
+    Navigation.update_display(state, today, today.day)
+end
+
 function Navigation.setup_keybindings(state)
     local buf = state.buf
     local win = state.win
@@ -334,6 +344,9 @@ function Navigation.setup_keybindings(state)
     map("n", function() Navigation.switch_month(state, "next") end)
     map("<C-D>", function() Navigation.switch_month(state, "previous") end)
     map("<C-U>", function() Navigation.switch_month(state, "next") end)
+
+    -- Jump to today
+    map("t", function() Navigation.focus_today(state) end)
 
     -- Select day
     local function handle_selection()

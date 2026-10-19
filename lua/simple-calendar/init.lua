@@ -69,7 +69,7 @@ function M.open(date)
         local valid_date = calendar_core.validate_date(date)
         if not valid_date then
             vim.notify("simple-calendar: Invalid date table", vim.log.levels.ERROR)
-            valid_date = os.date("*t") -- fallback: open today's calendar
+            valid_date = calendar_core.validate_date(os.date("*t")) -- fallback: open today's calendar
         end
         state.now = valid_date
         state.selected_day = valid_date.day
@@ -79,7 +79,7 @@ function M.open(date)
             state.now = extracted_date
             state.selected_day = extracted_date.day
         else
-            state.now = os.date("*t")
+            state.now = calendar_core.validate_date(os.date("*t"))
             state.selected_day = state.now.day
         end
     end
