@@ -13,10 +13,12 @@ function UI.configure_highlight_group()
     if _highlight_group == nil then
         _highlight_group = vim.api.nvim_create_augroup("SimpleCalendarHighlights", {})
         vim.api.nvim_set_hl(0, "CalendarDayWithNote", { bold = true })
+        vim.api.nvim_set_hl(0, "CalendarToday", { underline = true })
         vim.api.nvim_create_autocmd("ColorScheme", {
             group = _highlight_group,
             callback = function()
                 vim.api.nvim_set_hl(0, "CalendarDayWithNote", { bold = true })
+                vim.api.nvim_set_hl(0, "CalendarToday", { underline = true })
             end,
         })
     end
@@ -111,7 +113,7 @@ function UI.update_highlight(state)
     -- Clear existing highlights
     vim.api.nvim_buf_clear_namespace(state.buf, -1, 0, -1)
 
-    -- Highlight days with unfinished tasks
+    local today = os.date("*t")
     for week_idx, week in ipairs(state.grid) do
         for day_idx, day in ipairs(week) do
             if day.day > 0 then
@@ -134,6 +136,12 @@ function UI.update_highlight(state)
                 -- Highlight selected day (overrides task highlight)
                 if day.day == state.selected_day then
                     vim.api.nvim_buf_add_highlight(state.buf, -1, "Visual", line_num - 1, col_start, col_start + 2)
+                end
+
+                -- Underline today's cell on top of status/selection highlights
+                if date_table.year == today.year and date_table.month == today.month and date_table.day == today.day then
+                    vim.api.nvim_buf_add_highlight(state.buf, -1, "CalendarToday", line_num - 1, col_start,
+                        col_start + 2)
                 end
             end
         end

@@ -141,6 +141,8 @@ Supported strftime tokens:
 
 Set `use_lowercase_daily_path = true` to generate daily note paths in lowercase (e.g., `feb-25-2026-wed.md`). When `false` (default), paths use the case returned by `os.date()` (e.g., `Feb-25-2026-Wed.md`). File matching is exact.
 
+Today's cell is always underlined (`CalendarToday` highlight group, customize via `:hi CalendarToday …`), regardless of `daily_path_pattern`.
+
 When `daily_path_pattern` is configured (non‑empty), days in the calendar are highlighted according to their status:
 
 - **Days with an existing note file** are shown in **bold** (using the `CalendarDayWithNote` highlight group; customize via `:hi CalendarDayWithNote …`).

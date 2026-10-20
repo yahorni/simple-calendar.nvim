@@ -106,6 +106,39 @@ function M.run()
         end
     end)
 
+    -- Test: M.open - today's cell gets the CalendarToday underline
+    assert.run_test("M.open - today's cell is underlined", function()
+        local config = plugin._test._config
+        local original_daily = config.daily_path_pattern
+        config.daily_path_pattern = ""
+
+        api_calls["nvim_buf_add_highlight"] = {}
+
+        local ok, err = pcall(function() plugin.open() end)
+        assert.assert_equal(ok, true, "open() should not error: " .. tostring(err))
+
+        -- Expected cell: today's position in the current month's grid.
+        local CalendarCore = plugin._test.CalendarCore
+        local UI = plugin._test.UI
+        local today = CalendarCore.validate_date(os.date("*t"))
+        local grid = CalendarCore.get_calendar_grid(today)
+        local pos = UI.position_from_day(grid, today.day)
+        local expected_line = pos.line + 2 -- 0-based buffer line
+        local expected_col_start = pos.col - 1
+
+        local found = false
+        for _, call in ipairs(api_calls["nvim_buf_add_highlight"]) do
+            if call[3] == "CalendarToday" and call[4] == expected_line and call[5] == expected_col_start then
+                found = true
+                break
+            end
+        end
+        assert.assert_equal(found, true, "today's cell should be highlighted with CalendarToday")
+
+        -- Restore
+        config.daily_path_pattern = original_daily
+    end)
+
     -- Test: M.journal - basic invocation
     assert.run_test("M.journal - can be called without errors", function()
         -- Set a pattern to avoid empty pattern error

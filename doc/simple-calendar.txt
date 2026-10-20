@@ -103,6 +103,9 @@ skip_weekends~                          (boolean)
     `calendar.journal("tomorrow")` opens Monday's file.
     Default: false
 
+Regardless of the options above, today's day cell is always underlined
+(`CalendarToday` highlight group; customize with :hi CalendarToday).
+
 ==============================================================================
 KEYBINDINGS                                                 *simple-calendar-keybindings*
 
