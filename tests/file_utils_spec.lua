@@ -21,7 +21,7 @@ function M.run()
     local original_config_pattern = _config.daily_path_pattern
     local original_config_highlight = _config.highlight_unfinished_tasks
     local original_config_completed_markers = _config.completed_task_markers
-    local original_config_use_lowercase = _config.use_lowercase_daily_path
+    local original_config_use_lowercase = _config.use_lowercase_paths
 
     -- Mock functions with configurable return values
     local mock_filereadable_return = 0
@@ -55,7 +55,7 @@ function M.run()
         _config.daily_path_pattern = original_config_pattern
         _config.highlight_unfinished_tasks = original_config_highlight
         _config.completed_task_markers = original_config_completed_markers
-        _config.use_lowercase_daily_path = original_config_use_lowercase
+        _config.use_lowercase_paths = original_config_use_lowercase
     end
 
     -- Test: convert_pattern_to_regex - basic patterns
@@ -220,10 +220,10 @@ function M.run()
         assert.assert_nil(date, "Should return nil when weekday doesn't match date")
     end)
 
-    assert.run_test("extract_date_from_filename - lowercase weekday with use_lowercase_daily_path", function()
+    assert.run_test("extract_date_from_filename - lowercase weekday with use_lowercase_paths", function()
         mock_buf_get_name_return = "/home/user/notes/wednesday-25-02-2026.md"
         _config.daily_path_pattern = "notes/%A-%d-%m-%Y.md"
-        _config.use_lowercase_daily_path = true
+        _config.use_lowercase_paths = true
 
         local date = FileUtils.extract_date_from_filename()
 
@@ -281,7 +281,7 @@ function M.run()
         mock_readfile_return = { "# Daily log", "- [x] Done task" }
         _config.daily_path_pattern = "%b-%d-%Y.md"
         _config.highlight_unfinished_tasks = true
-        _config.use_lowercase_daily_path = true
+        _config.use_lowercase_paths = true
 
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)
@@ -299,7 +299,7 @@ function M.run()
         mock_readfile_return = { "# Daily log", "- [x] Done task" }
         _config.daily_path_pattern = "%b-%d-%Y.md"
         _config.highlight_unfinished_tasks = true
-        _config.use_lowercase_daily_path = false
+        _config.use_lowercase_paths = false
 
         local date = { year = 2025, month = 1, day = 15 }
         local status = FileUtils.get_day_status(date)

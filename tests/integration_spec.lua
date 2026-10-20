@@ -106,11 +106,138 @@ function M.run()
         end
     end)
 
+    -- Test: M.open - focuses on the open weekly note's week
+    assert.run_test("M.open - focuses on the open weekly note's week", function()
+        local config = plugin._test._config
+        local original_weekly = config.weekly_path_pattern
+        local original_daily = config.daily_path_pattern
+        local original_show = config.show_week_number
+        config.weekly_path_pattern = "%G-W%V.md"
+        config.daily_path_pattern = "%Y-%m-%d.md"
+        config.show_week_number = false
+
+        local original_buf_get_name = vim.api.nvim_buf_get_name
+        vim.api.nvim_buf_get_name = function() return "/home/user/notes/2025-W03.md" end
+
+        api_calls["nvim_buf_set_lines"] = {}
+        api_calls["nvim_win_set_cursor"] = {}
+
+        local ok, err = pcall(function() plugin.open() end)
+        assert.assert_equal(ok, true, "open() with weekly filename should not error: " .. tostring(err))
+
+        -- Header should show the week's month
+        local set_lines_calls = api_calls["nvim_buf_set_lines"]
+        local lines = set_lines_calls[#set_lines_calls][5]
+        assert.assert_not_nil(string.find(lines[1], "January 2025"), "Header should show January 2025")
+
+        -- Selection should land on the week's Thursday (Jan 16 2025): grid
+        -- row 3, fourth column => buffer line 5, col 10.
+        local set_cursor_calls = api_calls["nvim_win_set_cursor"]
+        local pos = set_cursor_calls[#set_cursor_calls][2]
+        assert.assert_equal(pos[1], 5, "Cursor line should be the Thursday's row")
+        assert.assert_equal(pos[2], 10, "Cursor col should be the Thursday's column")
+
+        -- Restore
+        config.weekly_path_pattern = original_weekly
+        config.daily_path_pattern = original_daily
+        config.show_week_number = original_show
+        vim.api.nvim_buf_get_name = original_buf_get_name
+    end)
+
+    -- Test: M.open - current weekly note focuses today instead of Monday
+    assert.run_test("M.open - current weekly note focuses today", function()
+        local config = plugin._test._config
+        local original_weekly = config.weekly_path_pattern
+        local original_daily = config.daily_path_pattern
+        local original_show = config.show_week_number
+        config.weekly_path_pattern = "%G-W%V.md"
+        config.daily_path_pattern = "%Y-%m-%d.md"
+        config.show_week_number = false
+
+        -- Build the filename for the actual current ISO week (no hardcoded dates).
+        local CalendarCore = plugin._test.CalendarCore
+        local today = CalendarCore.validate_date(os.date("*t"))
+        local iso = CalendarCore.iso_week_of_anchor(CalendarCore.get_week_anchor(today))
+        local filename = string.format("/home/user/notes/%d-W%02d.md", iso.iso_year, iso.week)
+
+        local original_buf_get_name = vim.api.nvim_buf_get_name
+        vim.api.nvim_buf_get_name = function() return filename end
+
+        -- Force a cursor position that never matches, so the final
+        -- nvim_win_set_cursor call is always the one we assert on.
+        local original_win_get_cursor = vim.api.nvim_win_get_cursor
+        vim.api.nvim_win_get_cursor = function() return { 0, 0 } end
+
+        api_calls["nvim_buf_set_lines"] = {}
+        api_calls["nvim_win_set_cursor"] = {}
+
+        local ok, err = pcall(function() plugin.open() end)
+        assert.assert_equal(ok, true, "open() with current weekly filename should not error: " .. tostring(err))
+
+        -- Header should show today's month
+        local set_lines_calls = api_calls["nvim_buf_set_lines"]
+        local lines = set_lines_calls[#set_lines_calls][5]
+        local expected_header = CalendarCore.MONTH_NAMES[today.month] .. " " .. tostring(today.year)
+        assert.assert_not_nil(string.find(lines[1], expected_header),
+            "Header should show today's month (" .. expected_header .. ")")
+
+        -- Selection should land on today, not on the week's Monday
+        local UI = plugin._test.UI
+        local grid = CalendarCore.get_calendar_grid(today)
+        local expected = UI.position_from_day(grid, today.day)
+        local set_cursor_calls = api_calls["nvim_win_set_cursor"]
+        local pos = set_cursor_calls[#set_cursor_calls][2]
+        assert.assert_equal(pos[1], expected.line + 3, "Cursor line should be today's row")
+        assert.assert_equal(pos[2], expected.col, "Cursor col should be today's column")
+
+        -- Restore
+        config.weekly_path_pattern = original_weekly
+        config.daily_path_pattern = original_daily
+        config.show_week_number = original_show
+        vim.api.nvim_buf_get_name = original_buf_get_name
+        vim.api.nvim_win_get_cursor = original_win_get_cursor
+    end)
+
+    -- Control: a daily-pattern filename still focuses that day (daily wins)
+    assert.run_test("M.open - daily filename still focuses the day", function()
+        local config = plugin._test._config
+        local original_weekly = config.weekly_path_pattern
+        local original_daily = config.daily_path_pattern
+        local original_show = config.show_week_number
+        config.weekly_path_pattern = "%G-W%V.md"
+        config.daily_path_pattern = "%Y-%m-%d.md"
+        config.show_week_number = false
+
+        local original_buf_get_name = vim.api.nvim_buf_get_name
+        vim.api.nvim_buf_get_name = function() return "/home/user/notes/2025-01-15.md" end
+
+        api_calls["nvim_win_set_cursor"] = {}
+
+        local ok, err = pcall(function() plugin.open() end)
+        assert.assert_equal(ok, true, "open() with daily filename should not error: " .. tostring(err))
+
+        -- Jan 15 2025 is Wednesday: grid row 3, third column => line 5, col 7.
+        local set_cursor_calls = api_calls["nvim_win_set_cursor"]
+        local pos = set_cursor_calls[#set_cursor_calls][2]
+        assert.assert_equal(pos[1], 5, "Cursor line should be Jan 15's row")
+        assert.assert_equal(pos[2], 7, "Cursor col should be Jan 15's column")
+
+        -- Restore
+        config.weekly_path_pattern = original_weekly
+        config.daily_path_pattern = original_daily
+        config.show_week_number = original_show
+        vim.api.nvim_buf_get_name = original_buf_get_name
+    end)
+
     -- Test: M.open - today's cell gets the CalendarToday underline
     assert.run_test("M.open - today's cell is underlined", function()
         local config = plugin._test._config
+        local original_weekly = config.weekly_path_pattern
         local original_daily = config.daily_path_pattern
+        local original_show = config.show_week_number
+        config.weekly_path_pattern = ""
         config.daily_path_pattern = ""
+        config.show_week_number = false
 
         api_calls["nvim_buf_add_highlight"] = {}
 
@@ -136,7 +263,9 @@ function M.run()
         assert.assert_equal(found, true, "today's cell should be highlighted with CalendarToday")
 
         -- Restore
+        config.weekly_path_pattern = original_weekly
         config.daily_path_pattern = original_daily
+        config.show_week_number = original_show
     end)
 
     -- Test: M.journal - basic invocation

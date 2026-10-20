@@ -1,6 +1,8 @@
 return {
     daily_path_pattern = "",
-    use_lowercase_daily_path = false,
+    weekly_path_pattern = "",
+    show_week_number = false,
+    use_lowercase_paths = false,
     highlight_unfinished_tasks = false,
     completed_task_markers = { "x", "-" },
     skip_weekends = false,

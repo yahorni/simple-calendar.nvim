@@ -187,6 +187,37 @@ function M.run()
         assert.assert_equal(day_count, 30, "April 2025 should have 30 days")
     end)
 
+    -- Test: refresh_calendar - trailing empty cells are trimmed without the gutter
+    assert.run_test("refresh_calendar - last week trimmed to its last real day (no gutter)", function()
+        local _config = plugin._test._config
+        local original_show_week_number = _config.show_week_number
+        _config.show_week_number = false
+
+        -- October 2026 ends on a Saturday, so the last week is
+        -- Mon 26 .. Sat 31 with one trailing empty Sunday cell.
+        local _, lines = CalendarCore.refresh_calendar({ year = 2026, month = 10, day = 1 })
+        assert.assert_equal(lines[7], "26 27 28 29 30 31",
+            "Last week should be trimmed to its last real day")
+        assert.assert_equal(lines[8], "", "Blank trailing week should be an empty line")
+
+        _config.show_week_number = original_show_week_number
+    end)
+
+    assert.run_test("refresh_calendar - full final week is not trimmed (no gutter)", function()
+        local _config = plugin._test._config
+        local original_show_week_number = _config.show_week_number
+        _config.show_week_number = false
+
+        -- May 2026 ends on a Sunday, so the last week fills all 7 day cells.
+        local _, lines = CalendarCore.refresh_calendar({ year = 2026, month = 5, day = 1 })
+        assert.assert_equal(lines[7], "25 26 27 28 29 30 31",
+            "Full final week should keep all day cells")
+        assert.assert_equal(#lines[7], 20, "Full week line should be exactly the weekday-grid width")
+        assert.assert_equal(lines[2], "Mo Tu We Th Fr Sa Su", "No gutter prefix when show_week_number is off")
+
+        _config.show_week_number = original_show_week_number
+    end)
+
     -- Test: switch_month - basic month transitions
     assert.run_test("switch_month - next month (sequence mode)", function()
         -- January 31 -> February 1 in sequence mode

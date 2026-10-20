@@ -7,6 +7,15 @@ local Navigation = {}
 local _programmatic_cursor_move_count = 0
 local _highlight_group = nil
 
+-- Width of the week-number gutter for the current config; 0 when hidden.
+local function gutter_width()
+    local config = require("simple-calendar.config")
+    if not config.show_week_number then
+        return 0
+    end
+    return calendar_core.gutter_width()
+end
+
 -- UI
 
 function UI.configure_highlight_group()
@@ -69,7 +78,12 @@ function UI.day_from_position(grid, line, col_pos)
         return nil
     end
     local week = grid[line + 1]
-    local day_idx = math.floor((col_pos + 1) / 3) + 1
+    -- Each day column spans exactly 3 bytes (2-digit ASCII day + one space).
+    local col = col_pos - gutter_width()
+    if col < 0 then
+        return nil
+    end
+    local day_idx = math.floor((col + 1) / 3) + 1
     if day_idx < 1 or day_idx > #week then
         return nil
     end
@@ -82,7 +96,7 @@ function UI.position_from_day(grid, day)
         for day_idx, cell in ipairs(week) do
             if cell.day == day then
                 local line = week_idx - 1
-                local col_val = (day_idx - 1) * 3 + 1
+                local col_val = gutter_width() + (day_idx - 1) * 3 + 1
                 return { line = line, col = col_val }
             end
         end
@@ -110,7 +124,6 @@ function UI.ensure_cursor_position(state)
 end
 
 function UI.update_highlight(state)
-    -- Clear existing highlights
     vim.api.nvim_buf_clear_namespace(state.buf, -1, 0, -1)
 
     local today = os.date("*t")
@@ -118,9 +131,8 @@ function UI.update_highlight(state)
         for day_idx, day in ipairs(week) do
             if day.day > 0 then
                 local line_num = week_idx + 2 -- +2 for header and weekday lines
-                local col_start = (day_idx - 1) * 3
+                local col_start = gutter_width() + (day_idx - 1) * 3
 
-                -- Check day status and apply appropriate highlights
                 local date_table = { year = state.now.year, month = state.now.month, day = day.day }
                 local status = file_utils.get_day_status(date_table)
 
@@ -142,6 +154,27 @@ function UI.update_highlight(state)
                 if date_table.year == today.year and date_table.month == today.month and date_table.day == today.day then
                     vim.api.nvim_buf_add_highlight(state.buf, -1, "CalendarToday", line_num - 1, col_start,
                         col_start + 2)
+                end
+            end
+        end
+    end
+
+    -- Highlight the week-number gutter column (when configured) in addition to
+    -- day cells. Reflects the weekly-note existence status.
+    local config = require("simple-calendar.config")
+    if config.show_week_number then
+        for week_idx, week in ipairs(state.grid) do
+            if week.week_anchor then
+                local line_num = week_idx + 2
+                local status = file_utils.get_week_status(week.week_anchor)
+                local hl_group
+                if status == "missing" then
+                    hl_group = "Comment"
+                elseif status == "exists" then
+                    hl_group = "CalendarDayWithNote"
+                end
+                if hl_group then
+                    vim.api.nvim_buf_add_highlight(state.buf, -1, hl_group, line_num - 1, 0, gutter_width())
                 end
             end
         end
@@ -320,7 +353,6 @@ function Navigation.setup_keybindings(state)
     local buf = state.buf
     local win = state.win
 
-    -- Helper function to create keymaps
     local function map(key, callback)
         vim.api.nvim_buf_set_keymap(buf, "n", key, "", { noremap = true, silent = true, callback = callback })
     end
@@ -362,6 +394,23 @@ function Navigation.setup_keybindings(state)
     end
     map("o", handle_selection)
     map("<CR>", handle_selection)
+
+    -- Open weekly note for the currently selected day's week
+    local function handle_week_selection()
+        local config = require("simple-calendar.config")
+        if #config.weekly_path_pattern ~= 0 then
+            local anchor = calendar_core.get_week_anchor({
+                year = state.now.year,
+                month = state.now.month,
+                day = state.selected_day,
+            })
+            UI.close_calendar_window(win)
+            file_utils.handle_week_selection(anchor)
+        else
+            vim.notify("simple-calendar: weekly_path_pattern is not set", vim.log.levels.ERROR)
+        end
+    end
+    map("O", handle_week_selection)
 
     -- Close calendar
     map("q", function() UI.close_calendar_window(win) end)

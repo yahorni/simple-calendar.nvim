@@ -48,6 +48,28 @@ function M.setup(user_config)
             end
         end
     end
+
+    -- Warn on weekly_path_pattern values that cannot resolve a week:
+    --   - %V without %G/%g: the ISO week-year is missing, so the week is
+    --     ambiguous across the new-year boundary.
+    --   - no resolvable tokens at all: neither an ISO week pair (%V + %G/%g)
+    --     nor a full date (%Y + month + %d), so `weekly("next")` /
+    --     `weekly("previous")` can never resolve the current week.
+    local pattern = config.weekly_path_pattern
+    if type(pattern) == "string" and pattern ~= "" then
+        local has_week = pattern:find("%%V") ~= nil
+        local has_iso_year = pattern:find("%%G") ~= nil or pattern:find("%%g") ~= nil
+        local has_year = pattern:find("%%Y") ~= nil
+        local has_month = pattern:find("%%[mBb]") ~= nil
+        local has_day = pattern:find("%%d") ~= nil
+
+        if has_week and not has_iso_year then
+            log_warn("weekly_path_pattern uses %V without %G/%g; pair %V with %G (or %g) "
+                .. "so next/previous can resolve the week")
+        elseif not (has_week and has_iso_year) and not (has_year and has_month and has_day) then
+            log_warn("weekly_path_pattern has no resolvable week tokens; pair %V with %G/%g, or use %Y/%m/%d")
+        end
+    end
 end
 
 function M.open(date)
@@ -55,12 +77,10 @@ function M.open(date)
     local ui_navigation = require("simple-calendar.ui_navigation")
     local calendar_core = require("simple-calendar.calendar_core")
 
-    -- Clean up any invalid window reference
     if _current_win and not vim.api.nvim_win_is_valid(_current_win) then
         _current_win = nil
     end
 
-    -- Close any existing calendar window before creating a new one
     ui_navigation.UI.close_calendar_window(_current_win)
 
     local state = {}
@@ -79,8 +99,22 @@ function M.open(date)
             state.now = extracted_date
             state.selected_day = extracted_date.day
         else
-            state.now = calendar_core.validate_date(os.date("*t"))
-            state.selected_day = state.now.day
+            -- Focus the week of the currently open weekly note.
+            local extracted_week = file_utils.extract_week_from_filename()
+            if extracted_week then
+                -- Current week: focus today instead of the Monday anchor.
+                local today = calendar_core.validate_date(os.date("*t"))
+                if os.time(calendar_core.get_week_anchor(today)) == os.time(extracted_week) then
+                    state.now, state.selected_day = today, today.day
+                else
+                    -- Other weeks: focus Thursday, the middle of the week.
+                    state.now = calendar_core.shift_days(extracted_week, 3)
+                    state.selected_day = state.now.day
+                end
+            else
+                state.now = calendar_core.validate_date(os.date("*t"))
+                state.selected_day = state.now.day
+            end
         end
     end
 
@@ -94,7 +128,6 @@ function M.open(date)
     local width = max_width
     local height = #state.calendar_lines
 
-    -- Calculate window position (centered)
     local col, row = ui_navigation.UI.calculate_window_position(width, height)
     if not col then
         -- Warning already shown by calculate_window_position
@@ -150,6 +183,18 @@ function M.journal(arg)
         string_or_date = arg
     end
     return journal.open_day(string_or_date)
+end
+
+function M.weekly(arg)
+    local journal = require("simple-calendar.journal")
+
+    local string_or_date
+    if type(arg) == "table" and arg["args"] ~= nil then
+        string_or_date = arg.args
+    else
+        string_or_date = arg
+    end
+    return journal.open_week(string_or_date)
 end
 
 -- Export internal modules for testing when in test mode

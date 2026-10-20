@@ -105,4 +105,69 @@ function Journal.open_day(string_or_date)
     file_utils.handle_date_selection(date_table.day, date_table)
 end
 
+function Journal.open_week(string_or_date)
+    local config = require("simple-calendar.config")
+    if #config.weekly_path_pattern == 0 then
+        vim.notify("simple-calendar: weekly_path_pattern is not set", vim.log.levels.ERROR)
+        return
+    end
+
+    local calendar_core = require("simple-calendar.calendar_core")
+    local file_utils = require("simple-calendar.file_utils")
+
+    local anchor
+
+    if string_or_date == nil then
+        string_or_date = "today"
+    end
+
+    -- Check the type before looking at the value: a date table has no array
+    -- part, so `#string_or_date` would be 0 for it (and `#` on a number
+    -- errors) — both would wrongly fall into the "today" branch below.
+    if type(string_or_date) == "string" then
+        if string_or_date == "today" or #string_or_date == 0 then
+            anchor = calendar_core.get_week_anchor(os.date("*t"))
+        elseif string_or_date == "previous" or string_or_date == "next" then
+            local current, reason = file_utils.extract_week_from_filename()
+            if not current then
+                if reason == "pattern" then
+                    vim.notify("simple-calendar: weekly_path_pattern cannot resolve a week "
+                        .. "(pair %V with %G/%g, or use %Y/%m/%d tokens)", vim.log.levels.ERROR)
+                elseif reason == "invalid_week" then
+                    vim.notify("simple-calendar: Filename matches weekly_path_pattern but contains an invalid ISO week",
+                        vim.log.levels.ERROR)
+                else
+                    vim.notify("simple-calendar: Current file does not match weekly_path_pattern", vim.log.levels.ERROR)
+                end
+                return
+            end
+            anchor = calendar_core.switch_week(current, string_or_date)
+        elseif string_or_date == "from_daily" then
+            local current = file_utils.extract_date_from_filename()
+            if not current then
+                vim.notify("simple-calendar: Current file does not match daily_path_pattern", vim.log.levels.ERROR)
+                return
+            end
+            anchor = calendar_core.get_week_anchor(current)
+        else
+            vim.notify("simple-calendar: Invalid week. Use 'today', 'previous', 'next', 'from_daily', a date table or leave empty",
+                vim.log.levels.ERROR)
+            return
+        end
+    elseif type(string_or_date) == "table" then
+        local valid_date = calendar_core.validate_date(string_or_date)
+        if not valid_date then
+            vim.notify("simple-calendar: Invalid date table", vim.log.levels.ERROR)
+            return
+        end
+        anchor = calendar_core.get_week_anchor(valid_date)
+    else
+        vim.notify("simple-calendar: Invalid week. Use 'today', 'previous', 'next', 'from_daily', a date table or leave empty",
+            vim.log.levels.ERROR)
+        return
+    end
+
+    file_utils.handle_week_selection(anchor)
+end
+
 return Journal

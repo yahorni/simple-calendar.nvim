@@ -8,7 +8,7 @@ CONTENTS                                                           *simple-calen
     3. Usage ....................... |simple-calendar-usage|
     4. Configuration ............... |simple-calendar-configuration|
     5. Keybindings ................. |simple-calendar-keybindings|
-    6. Journaling .................. |simple-calendar-journaling|
+    6. Journaling & weekly notes ... |simple-calendar-journaling|
     7. Functions ................... |simple-calendar-functions|
     8. License ..................... |simple-calendar-license|
 
@@ -20,16 +20,19 @@ simple-calendar.nvim is a simple calendar plugin for Neovim.
  Features:
 - Intuitive navigation using h/j/k/l keys
 - Additional Vim-style navigation keys (b/w/e/ge) and arrow keys
-- Month switching using p/n keys (and `<C-d>`/`<C-u>` alternatives)
+- Month switching using p/n keys (and <C-d>/<C-u> alternatives)
 - Date selection that opens files based on configurable pattern
 
 ==============================================================================
 INSTALLATION                                                   *simple-calendar-installation*
 
-Using lazy.nvim:
+Using vim.pack (native packages):
 >
-    { "yahorni/simple-calendar.nvim" }
+    mkdir -p ~/.local/share/nvim/site/pack/plugins/start
+    git clone https://github.com/yahorni/simple-calendar.nvim \
+        ~/.local/share/nvim/site/pack/plugins/start/simple-calendar.nvim
 <
+With lazy.nvim, just `{ "yahorni/simple-calendar.nvim" }`.
 
 ==============================================================================
 USAGE                                                             *simple-calendar-usage*
@@ -38,15 +41,14 @@ To open the calendar:
 >
     :lua require('simple-calendar').open()
 <
-When opened, the calendar automatically shows the date from the current filename if it matches the `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current date.
-
-Open at a specific date:
+`open()` shows the date parsed from the current filename when it matches
+`daily_path_pattern` (e.g. `2024-10-15.md`), or the week when it matches
+`weekly_path_pattern` (e.g. `2025-W03.md`) — focused on today when it's the
+current week, otherwise on that week's Thursday; otherwise the current date.
+The optional `date` argument is a table with `year`, `month`, `day` fields:
 >
-    -- Open calendar at January 15, 2025
     require('simple-calendar').open({ year = 2025, month = 1, day = 15 })
 <
-The `date` parameter is optional. When provided, it must be a table with `year`, `month`, and `day` fields.
-
 Create a keymap for quick access:
 >
     vim.keymap.set('n', '<leader>c', require("simple-calendar").open, { desc = "Open [C]alendar" })
@@ -58,50 +60,61 @@ CONFIGURATION                                               *simple-calendar-con
 No configuration required. Optional setup:
 >
     require("simple-calendar").setup({
-        daily_path_pattern = "",
-        use_lowercase_daily_path = false,
-        highlight_unfinished_tasks = false,
-        completed_task_markers = { "x", "-" },
-        skip_weekends = false,
+        daily_path_pattern = "",                      -- default: ""
+        weekly_path_pattern = "",                     -- default: ""
+        show_week_number = false,                     -- default: false
+        use_lowercase_paths = false,                  -- default: false
+        highlight_unfinished_tasks = false,           -- default: false
+        completed_task_markers = { "x", "-" },        -- default: {"x", "-"}
+        skip_weekends = false,                        -- default: false
     })
 <
 
 Options:
 
-daily_path_pattern~                     (string)
-    Date format pattern for file creation when selecting a date. Uses Lua's
-    os.date() format. Supported tokens: %Y, %m, %d, %B, %b, %A, %a. Weekday tokens (%a, %A) are validated against the extracted date; mismatches cause the file not to be recognized. Must be set to a non‑empty string for the journal function and date selection to work.
-    When set, days with existing note files appear in bold (using the `CalendarDayWithNote` highlight group), while missing files are dimmed (`Comment`).
-    See use_lowercase_daily_path for case handling.
-    Default: ""
+daily_path_pattern~                     (string, default: "")
+    strftime pattern for daily note paths. Tokens: %Y, %m, %d, %B, %b, %A,
+    %a. Weekday tokens (%a, %A) are validated against the extracted date;
+    mismatches cause the file not to be recognized. Directory structures are
+    supported (e.g. "notes/%Y/%m-%B/%Y-%m-%d.md"). Must be non-empty for
+    journal() and date selection. When set, days with existing notes are bold
+    (`CalendarDayWithNote`), missing files dimmed (`Comment`).
 
-use_lowercase_daily_path~               (boolean)
-    When true, daily note paths are generated in lowercase (e.g.,
-    feb-25-2026-wed.md). When false (default), paths use the case
-    returned by os.date() (e.g., Feb-25-2026-Wed.md). File matching is exact
-    Default: false
+weekly_path_pattern~                    (string, default: "")
+    strftime pattern for weekly note paths. Supports the daily tokens plus
+    %G (ISO week-year), %g (2-digit ISO week-year, 00-49 -> 20xx, 50-99 ->
+    19xx) and %V (ISO week number, Monday-first, 01..53). A week is anchored
+    at its Monday. Pair %V with %G (e.g. "%G-W%V.md" -> "2025-W03.md"); %V
+    with %Y can mismatch across the new-year boundary (Jan 1-3 may belong to
+    the previous ISO year). %V without %G/%g, or a pattern with no resolvable
+    week tokens at all (neither a %V+%G/%g pair nor %Y/%m/%d), logs a warning
+    at setup() and makes weekly("next"/"previous") report the week as
+    unresolvable. Must be non-empty for weekly() and the `O` key.
 
-highlight_unfinished_tasks~             (boolean)
-    When enabled, additionally highlights days with unfinished markdown tasks
-    ("- [ ]", "* [ ]", "+ [ ]") using the `Todo` highlight group. Days with
-    only completed tasks (configurable markers, default: "- [x]", "- [-]")
-    are shown as normal days with a note (bold).
-    Supports `-`, `*`, `+` markdown list markers.
-    Default: false
+show_week_number~                       (boolean, default: false)
+    Show ISO week numbers in a gutter column to the left of each week row,
+    with a `W` header label and a `\|` separator. When weekly_path_pattern is
+    set, the numbers are styled by the weekly-note existence status (bold
+    `CalendarDayWithNote` or dimmed `Comment`).
 
-completed_task_markers~                 (table)
-    List of strings that mark completed tasks inside brackets.
-    Each marker must be a single character (e.g., "x", "-", "✓", "✅").
-    Space character is not allowed as a marker.
-    For example, {"x", "-"} matches "- [x]" and "- [-]". Matching is exact - spaces in brackets are not trimmed.
-    Supports `-`, `*`, `+` markdown list markers.
-    Default: {"x", "-"}
+use_lowercase_paths~                    (boolean, default: false)
+    Generate daily and weekly note paths in lowercase (e.g.
+    feb-25-2026-wed.md). Default uses os.date() casing (Feb-25-2026-Wed.md).
+    File matching is exact.
 
-skip_weekends~                          (boolean)
-    Skip weekends when using journal function. When enabled, weekends
-    (Saturday and Sunday) are skipped. For example, on Friday,
-    `calendar.journal("tomorrow")` opens Monday's file.
-    Default: false
+highlight_unfinished_tasks~             (boolean, default: false)
+    Additionally highlight days with unfinished markdown tasks ("- [ ]",
+    "* [ ]", "+ [ ]") using the `Todo` group. Days with only completed tasks
+    (see completed_task_markers) stay bold like normal note days.
+
+completed_task_markers~                 (table, default: {"x", "-"})
+    Single-character markers inside brackets that count a task as completed
+    (e.g. "x", "-", "✓", "✅"). Space is not allowed. Matching is exact -
+    spaces in brackets are not trimmed. Supports `-`, `*`, `+` list markers.
+
+skip_weekends~                          (boolean, default: false)
+    Skip weekends in journal(). E.g. on Friday, journal("tomorrow") opens
+    Monday's file; on Monday, journal("yesterday") opens Friday's.
 
 Regardless of the options above, today's day cell is always underlined
 (`CalendarToday` highlight group; customize with :hi CalendarToday).
@@ -109,11 +122,11 @@ Regardless of the options above, today's day cell is always underlined
 ==============================================================================
 KEYBINDINGS                                                 *simple-calendar-keybindings*
 
- When the calendar window is open:
- The Neovim cursor is unified with the selected day highlight, always positioned on the right digit of the selected date.
+ When the calendar window is open, the cursor is unified with the selected
+ day highlight, always positioned on the right digit of the selected date.
 
- Key         Action~
- ---         ------
+ Key          Action~
+ ---          ------
  h            Move left to previous day
  j            Move down to next week
  k            Move up to previous week
@@ -129,72 +142,78 @@ KEYBINDINGS                                                 *simple-calendar-key
  <C-d>        Switch to previous month
  <C-u>        Switch to next month
  o, <CR>      Select current date and open corresponding file
+ O            Open the weekly note for the currently selected day's week
  t            Jump to today's date
  q, <Esc>     Close calendar window
 
 ==============================================================================
-JOURNALING                                                  *simple-calendar-journaling*
+JOURNALING & WEEKLY NOTES                                     *simple-calendar-journaling*
+                                                              *simple-calendar-weekly*
 
-When `daily_path_pattern` is configured (non‑empty), you can use the `journal()` function to open journal files for today, yesterday, tomorrow, or a specific date.
-The `daily_path_pattern` configuration must be set to a non‑empty string,
-otherwise `journal()` will display an error.
-The function respects the `skip_weekends` configuration option (see
-|simple-calendar-configuration|).
-If the target file doesn't exist, you'll be prompted to create it.
+journal() requires daily_path_pattern; weekly() requires weekly_path_pattern.
+Both open the target file, prompting to create it (and parent directories)
+when missing.
 
-Function signature: `calendar.journal([string_or_date])` where `string_or_date` can be:
-- `nil` or omitted → opens today's file (same as `"today"`)
-- `"today"` → opens today's file
-- `"yesterday"` → opens yesterday's file
-- `"tomorrow"` → opens tomorrow's file
-- `"next"` → opens the day after the currently open daily note
-- `"previous"` → opens the day before the currently open daily note
-- A date table `{ year = Y, month = M, day = D }` → opens the file for that specific date
+`journal([arg])` where arg is:
+- "today", nil or omitted -> today
+- "yesterday" / "tomorrow" -> yesterday / tomorrow
+- "next" / "previous" -> the day after / before the currently open daily
+  note (requires it to match daily_path_pattern; respects skip_weekends)
+- { year = Y, month = M, day = D } -> that date
 
-Only the strings `"yesterday"`, `"today"`, `"tomorrow"`, `"next"`, and `"previous"`
-are supported; other strings will display an error. Date tables must have
-numeric `year`, `month`, and `day` fields within valid ranges. `"next"`/`"previous"`
-are resolved relative to the currently open file and require it to match the
-`daily_path_pattern`, otherwise an error is shown. They respect the
-`skip_weekends` option (e.g., on Friday, `"next"` opens Monday's file when
-`skip_weekends` is enabled).
+`weekly([arg])` where arg is:
+- "today", nil or omitted -> the week containing today
+- "next" / "previous" -> the week after / before the currently open weekly
+  note (requires it to match weekly_path_pattern)
+- "from_daily" -> the week of the currently open daily note (requires it
+  to match daily_path_pattern)
+- { year = Y, month = M, day = D } -> that date's week
+
+Other strings display an error. An empty string is treated as "today" (what
+:Weekly with no argument passes). If the pattern cannot resolve a week or
+the filename contains an invalid ISO week, a specific error is shown.
 
 Usage:
 >
     local calendar = require("simple-calendar")
-    calendar.journal()                     -- Open today's journal file
-    calendar.journal("today")              -- Same as above
-    calendar.journal("tomorrow")           -- Open tomorrow's journal file
-    calendar.journal("yesterday")          -- Open yesterday's journal file
-    calendar.journal("next")               -- Open the day after the current note
-    calendar.journal("previous")           -- Open the day before the current note
-    calendar.journal({ year = 2025, month = 1, day = 15 }) -- Open specific date
+    calendar.journal()                          -- today
+    calendar.journal("tomorrow")
+    calendar.journal({ year = 2025, month = 1, day = 15 })
+    calendar.weekly()                           -- this week
+    calendar.weekly("next")
+    calendar.weekly("from_daily")
 <
+
 Keybinding examples:
 >
-    local calendar = require("simple-calendar")
-    vim.keymap.set("n", "<leader>d", calendar.journal,
-                   { noremap = true, desc = "open [d]aily note" })
+    vim.keymap.set("n", "<leader>d", calendar.journal, { desc = "open [d]aily note" })
     vim.keymap.set("n", "<leader>t", function() calendar.journal("tomorrow") end,
-                   { noremap = true, desc = "open [t]omorrow's daily note" })
+                   { desc = "open [t]omorrow's daily note" })
     vim.keymap.set("n", "<leader>y", function() calendar.journal("yesterday") end,
-                   { noremap = true, desc = "open [y]esterday's daily note" })
+                   { desc = "open [y]esterday's daily note" })
     vim.keymap.set("n", "<leader>n", function() calendar.journal("next") end,
-                   { noremap = true, desc = "open [n]ext daily note" })
+                   { desc = "open [n]ext daily note" })
     vim.keymap.set("n", "<leader>p", function() calendar.journal("previous") end,
-                   { noremap = true, desc = "open [p]revious daily note" })
+                   { desc = "open [p]revious daily note" })
+    vim.keymap.set("n", "<leader>dw", calendar.weekly, { desc = "open [w]eekly note" })
+    vim.keymap.set("n", "<leader>wn", function() calendar.weekly("next") end,
+                   { desc = "open [n]ext weekly note" })
+    vim.keymap.set("n", "<leader>wp", function() calendar.weekly("previous") end,
+                   { desc = "open [p]revious weekly note" })
 <
-User command:
->
-    local calendar = require("simple-calendar")
-    vim.api.nvim_create_user_command("Journal", calendar.journal, { nargs = "?" })
-<
-This creates a `:Journal` command that accepts an optional argument (e.g., `:Journal tomorrow`).
 
-Command line usage with user command:
+User commands (optional argument accepted):
+>
+    vim.api.nvim_create_user_command("Journal", calendar.journal, { nargs = "?" })
+    vim.api.nvim_create_user_command("Weekly", calendar.weekly, { nargs = "?" })
+<
+Command line usage with user commands:
 >
     nvim -c 'Journal'
     nvim -c 'Journal tomorrow'
+    nvim -c 'Weekly'
+    nvim -c 'Weekly next'
+    nvim -c "lua require('simple-calendar').journal()"
 <
 
 Mapping to the user command:
@@ -204,56 +223,32 @@ Mapping to the user command:
     vim.keymap.set("n", "<leader>jt", ":Journal tomorrow<CR>",
                    { noremap = true, silent = true, desc = "Open tomorrow's journal" })
 <
-Command line usage:
->
-    nvim -c "lua require('simple-calendar').journal()"
-<
+
 ==============================================================================
 FUNCTIONS                                                   *simple-calendar-functions*
 
 open([date])~
-    Opens the calendar window. When called without arguments, the calendar
-    automatically shows the date from the current filename if it matches the
-    `daily_path_pattern` (e.g., `2024-10-15.md`). Otherwise, it shows the current
-    date.
+    Opens the calendar window at the date parsed from the current filename
+    (daily or weekly pattern match) or the current date. A weekly match
+    focuses today when the note is for the current week, otherwise that
+    week's Thursday. See |simple-calendar-usage|.
 >
     require("simple-calendar").open()
     require("simple-calendar").open({ year = 2025, month = 1, day = 15 })
 <
-    The optional `date` parameter must be a table with `year`, `month`, and `day`
-    fields.
 
-journal([string_or_date])~
-    Opens the journal file for today, yesterday, tomorrow, the next/previous
-    day relative to the currently open note, or a specific date.
-    The `string_or_date` parameter is optional (defaults to `"today"`). Valid values:
-    `nil`, `"today"`, `"yesterday"`, `"tomorrow"`, `"next"`, `"previous"`, or a
-    date table `{ year = Y, month = M, day = D }`. Only the listed strings are
-    supported; other strings will display an error. `"next"`/`"previous"` are
-    resolved relative to the currently open file, require it to match the
-    `daily_path_pattern`, and respect `skip_weekends`.
->
-    local calendar = require("simple-calendar")
-    calendar.journal()                     -- Open today's journal file
-    calendar.journal("today")              -- Same as above
-    calendar.journal("tomorrow")           -- Open tomorrow's journal file
-    calendar.journal("yesterday")          -- Open yesterday's journal file
-    calendar.journal("next")               -- Open the day after the current note
-    calendar.journal("previous")           -- Open the day before the current note
-    calendar.journal({ year = 2025, month = 1, day = 15 }) -- Open specific date
-<
+journal([arg])~
+    Opens the daily note for today, yesterday, tomorrow, the next/previous
+    day relative to the open note, or a date table. See
+    |simple-calendar-journaling|.
+
+weekly([arg])~
+    Opens the weekly note for the current week, the next/previous week, the
+    open daily note's week, or a date table. See |simple-calendar-journaling|.
 
 setup(config)~
-    Configures the plugin with the provided options. All options are optional.
->
-    require("simple-calendar").setup({
-        daily_path_pattern = "",                       -- default: empty string
-        use_lowercase_daily_path = false,              -- default: false
-        highlight_unfinished_tasks = false,            -- default: false
-        completed_task_markers = { "x", "-" },         -- default: {"x", "-"}
-        skip_weekends = false,                         -- default: false
-    })
-<
+    Configures the plugin with the provided options; all optional. See
+    |simple-calendar-configuration|.
 
 ==============================================================================
 LICENSE                                                       *simple-calendar-license*

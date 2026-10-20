@@ -14,9 +14,10 @@ function M.run()
 
     -- Backup original config
     local original_daily_path_pattern = _config.daily_path_pattern
+    local original_weekly_path_pattern = _config.weekly_path_pattern
     local original_highlight_unfinished_tasks = _config.highlight_unfinished_tasks
     local original_completed_task_markers = _config.completed_task_markers
-    local original_use_lowercase_daily_path = _config.use_lowercase_daily_path
+    local original_use_lowercase_paths = _config.use_lowercase_paths
 
     -- Helper to capture warnings from vim.notify
     local function capture_warnings()
@@ -260,36 +261,101 @@ function M.run()
         end
     end)
 
-    assert.run_test("use_lowercase_daily_path - default value", function()
+    assert.run_test("use_lowercase_paths - default value", function()
         -- Reset to defaults
         _config.daily_path_pattern = "%Y-%m-%d.md"
         _config.highlight_unfinished_tasks = false
         _config.completed_task_markers = { "x", "-" }
-        _config.use_lowercase_daily_path = false
+        _config.use_lowercase_paths = false
 
-        assert.assert_equal(_config.use_lowercase_daily_path, false, "Default should be false")
+        assert.assert_equal(_config.use_lowercase_paths, false, "Default should be false")
     end)
 
 
 
-    assert.run_test("use_lowercase_daily_path - accepts boolean values", function()
+    assert.run_test("use_lowercase_paths - accepts boolean values", function()
         _config.daily_path_pattern = "%Y-%m-%d.md"
         _config.highlight_unfinished_tasks = false
         _config.completed_task_markers = { "x", "-" }
-        _config.use_lowercase_daily_path = false
+        _config.use_lowercase_paths = false
 
-        plugin.setup({ use_lowercase_daily_path = true })
-        assert.assert_equal(_config.use_lowercase_daily_path, true, "Should accept true")
+        plugin.setup({ use_lowercase_paths = true })
+        assert.assert_equal(_config.use_lowercase_paths, true, "Should accept true")
 
-        plugin.setup({ use_lowercase_daily_path = false })
-        assert.assert_equal(_config.use_lowercase_daily_path, false, "Should accept false")
+        plugin.setup({ use_lowercase_paths = false })
+        assert.assert_equal(_config.use_lowercase_paths, false, "Should accept false")
+    end)
+
+    assert.run_test("weekly_path_pattern - %V without %G/%g warns", function()
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.weekly_path_pattern = "%G-W%V.md"
+
+        local capturer = capture_warnings()
+        plugin.setup({ weekly_path_pattern = "%Y-W%V.md" })
+        local warnings = capturer.get_warnings()
+        capturer.restore()
+
+        assert.assert_equal(#warnings, 1, "Should log exactly one warning")
+        assert.assert_not_nil(string.find(warnings[1], "%V without %G", 1, true),
+            "Warning should mention %V without %G/%g: " .. warnings[1])
+    end)
+
+    assert.run_test("weekly_path_pattern - %V with %G does not warn", function()
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.weekly_path_pattern = "%G-W%V.md"
+
+        local capturer = capture_warnings()
+        plugin.setup({ weekly_path_pattern = "%G-W%V.md" })
+        local warnings = capturer.get_warnings()
+        capturer.restore()
+
+        assert.assert_equal(#warnings, 0, "Should not warn when %V is paired with %G")
+    end)
+
+    assert.run_test("weekly_path_pattern - no resolvable week tokens warns", function()
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.weekly_path_pattern = "%G-W%V.md"
+
+        local capturer = capture_warnings()
+        plugin.setup({ weekly_path_pattern = "weekly.md" })
+        local warnings = capturer.get_warnings()
+        capturer.restore()
+
+        assert.assert_equal(#warnings, 1, "Should log exactly one warning")
+        assert.assert_not_nil(string.find(warnings[1], "no resolvable week tokens", 1, true),
+            "Warning should mention missing week tokens: " .. warnings[1])
+    end)
+
+    assert.run_test("weekly_path_pattern - date tokens alone do not warn", function()
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.weekly_path_pattern = "%G-W%V.md"
+
+        local capturer = capture_warnings()
+        plugin.setup({ weekly_path_pattern = "%Y-%m-%d.md" })
+        local warnings = capturer.get_warnings()
+        capturer.restore()
+
+        assert.assert_equal(#warnings, 0, "Pattern with %Y/%m/%d tokens should not warn")
+    end)
+
+    assert.run_test("weekly_path_pattern - empty pattern does not warn", function()
+        _config.daily_path_pattern = "%Y-%m-%d.md"
+        _config.weekly_path_pattern = "%G-W%V.md"
+
+        local capturer = capture_warnings()
+        plugin.setup({ weekly_path_pattern = "" })
+        local warnings = capturer.get_warnings()
+        capturer.restore()
+
+        assert.assert_equal(#warnings, 0, "Empty pattern (weekly notes disabled) should not warn")
     end)
 
     -- Restore original config
     _config.daily_path_pattern = original_daily_path_pattern
+    _config.weekly_path_pattern = original_weekly_path_pattern
     _config.highlight_unfinished_tasks = original_highlight_unfinished_tasks
     _config.completed_task_markers = original_completed_task_markers
-    _config.use_lowercase_daily_path = original_use_lowercase_daily_path
+    _config.use_lowercase_paths = original_use_lowercase_paths
 
     print("  All Configuration tests completed")
 end
