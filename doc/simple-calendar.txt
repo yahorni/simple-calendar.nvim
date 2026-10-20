@@ -19,7 +19,7 @@ simple-calendar.nvim is a simple calendar plugin for Neovim.
 
  Features:
 - Intuitive navigation using h/j/k/l keys
-- Additional Vim-style navigation keys (b/B/w/W/e/E/ge/gE) and arrow keys
+- Additional Vim-style navigation keys (b/w/e/ge) and arrow keys
 - Month switching using p/n keys (and `<C-d>`/`<C-u>` alternatives)
 - Date selection that opens files based on configurable pattern
 
@@ -122,8 +122,8 @@ KEYBINDINGS                                                 *simple-calendar-key
  <Right>      Move right to next day
  <Up>         Move up to previous week
  <Down>       Move down to next week
- b, B, ge, gE Move left to previous day
- w, W, e, E   Move right to next day
+ b, ge        Move left to previous day
+ w, e         Move right to next day
  p            Switch to previous month
  n            Switch to next month
  <C-d>        Switch to previous month

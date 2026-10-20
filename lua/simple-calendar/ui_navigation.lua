@@ -339,13 +339,9 @@ function Navigation.setup_keybindings(state)
 
     -- Vim-style navigation keys
     map("b", function() Navigation.handle(state, "left") end)
-    map("B", function() Navigation.handle(state, "left") end)
     map("w", function() Navigation.handle(state, "right") end)
-    map("W", function() Navigation.handle(state, "right") end)
     map("ge", function() Navigation.handle(state, "left") end)
-    map("gE", function() Navigation.handle(state, "left") end)
     map("e", function() Navigation.handle(state, "right") end)
-    map("E", function() Navigation.handle(state, "right") end)
 
     -- Month switching
     map("p", function() Navigation.switch_month(state, "previous") end)

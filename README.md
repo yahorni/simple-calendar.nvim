@@ -7,7 +7,7 @@ A simple calendar plugin for Neovim.
 ## Features
 
 - Intuitive navigation using h/j/k/l keys
-- Additional Vim-style navigation keys (b/B/w/W/e/E/ge/gE) and arrow keys
+- Additional Vim-style navigation keys (b/w/e/ge) and arrow keys
 - Month switching using p/n keys (and `<C-D>`/`<C-U>` alternatives)
 - Date selection that opens files based on configurable pattern
 
@@ -68,8 +68,8 @@ Key                  | Action
 `j`, `<Down>`        | Move down to next week
 `k`, `<Up>`          | Move up to previous week
 `l`, `<Right>`       | Move right to next day
-`b`, `B`, `ge`, `gE` | Move left to previous day
-`w`, `W`, `e`, `E`   | Move right to next day
+`b`, `ge`            | Move left to previous day
+`w`, `e`             | Move right to next day
 `p`, `<C-D>`         | Switch to previous month
 `n`, `<C-U>`         | Switch to next month
 `o`, `<CR>`          | Select current date and open corresponding file
